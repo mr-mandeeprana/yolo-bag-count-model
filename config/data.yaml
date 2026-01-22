@@ -1,0 +1,20 @@
+# Dataset configuration for YOLO bag detection
+# Update paths after preparing your dataset
+
+# Paths (absolute path required for YOLO)
+path: C:/Users/mrman/OneDrive/Desktop/Beumer Data/Yolo_bag_count_model/data/processed
+train: images/train      # Train images (relative to 'path')
+val: images/val          # Validation images (relative to 'path')
+test: images/test        # Test images (optional)
+
+# Classes
+nc: 1  # Number of classes
+names: ['bag']  # Class names
+
+# Dataset Info
+# Update these after collecting data
+# Expected: 1000-2000 images for good performance
+# Augmentation applied during training
+
+# Optional: Download pre-trained weights
+# download: https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.pt

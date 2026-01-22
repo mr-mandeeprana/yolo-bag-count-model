@@ -1,0 +1,103 @@
+Fillpac Bag Counting Log
+============================================================
+Timestamp: 2026-01-21 14:39:54
+Total Bags Counted: 16
+Total Frames: 2748
+Duration: 223.22 seconds
+============================================================
+
+Frame-by-Frame Log:
+Time: 2.60s, Frame: 29, Count: 0
+Time: 5.00s, Frame: 58, Count: 0
+Time: 7.43s, Frame: 87, Count: 0
+Time: 9.74s, Frame: 116, Count: 0
+Time: 12.16s, Frame: 145, Count: 0
+Time: 14.46s, Frame: 174, Count: 0
+Time: 16.82s, Frame: 203, Count: 0
+Time: 19.20s, Frame: 232, Count: 0
+Time: 21.57s, Frame: 261, Count: 1
+Time: 23.92s, Frame: 290, Count: 1
+Time: 26.29s, Frame: 319, Count: 1
+Time: 28.63s, Frame: 348, Count: 1
+Time: 31.07s, Frame: 377, Count: 1
+Time: 33.42s, Frame: 406, Count: 1
+Time: 35.74s, Frame: 435, Count: 1
+Time: 38.17s, Frame: 464, Count: 2
+Time: 40.55s, Frame: 493, Count: 3
+Time: 42.92s, Frame: 522, Count: 3
+Time: 45.29s, Frame: 551, Count: 3
+Time: 47.75s, Frame: 580, Count: 3
+Time: 50.13s, Frame: 609, Count: 3
+Time: 52.46s, Frame: 638, Count: 3
+Time: 54.77s, Frame: 667, Count: 4
+Time: 57.10s, Frame: 696, Count: 4
+Time: 59.42s, Frame: 725, Count: 4
+Time: 61.79s, Frame: 754, Count: 4
+Time: 64.13s, Frame: 783, Count: 5
+Time: 66.46s, Frame: 812, Count: 5
+Time: 68.77s, Frame: 841, Count: 5
+Time: 71.05s, Frame: 870, Count: 5
+Time: 73.38s, Frame: 899, Count: 5
+Time: 75.70s, Frame: 928, Count: 5
+Time: 78.02s, Frame: 957, Count: 5
+Time: 80.34s, Frame: 986, Count: 5
+Time: 82.67s, Frame: 1015, Count: 5
+Time: 84.98s, Frame: 1044, Count: 5
+Time: 87.28s, Frame: 1073, Count: 5
+Time: 89.73s, Frame: 1102, Count: 5
+Time: 92.10s, Frame: 1131, Count: 5
+Time: 94.44s, Frame: 1160, Count: 5
+Time: 96.76s, Frame: 1189, Count: 5
+Time: 99.10s, Frame: 1218, Count: 5
+Time: 101.46s, Frame: 1247, Count: 5
+Time: 103.82s, Frame: 1276, Count: 5
+Time: 106.16s, Frame: 1305, Count: 5
+Time: 108.48s, Frame: 1334, Count: 5
+Time: 110.85s, Frame: 1363, Count: 5
+Time: 113.19s, Frame: 1392, Count: 5
+Time: 115.52s, Frame: 1421, Count: 5
+Time: 117.87s, Frame: 1450, Count: 5
+Time: 120.23s, Frame: 1479, Count: 5
+Time: 122.56s, Frame: 1508, Count: 6
+Time: 124.93s, Frame: 1537, Count: 6
+Time: 127.29s, Frame: 1566, Count: 6
+Time: 129.65s, Frame: 1595, Count: 6
+Time: 132.01s, Frame: 1624, Count: 6
+Time: 134.43s, Frame: 1653, Count: 6
+Time: 136.81s, Frame: 1682, Count: 6
+Time: 139.18s, Frame: 1711, Count: 6
+Time: 141.52s, Frame: 1740, Count: 7
+Time: 143.87s, Frame: 1769, Count: 7
+Time: 146.22s, Frame: 1798, Count: 7
+Time: 148.57s, Frame: 1827, Count: 7
+Time: 150.92s, Frame: 1856, Count: 7
+Time: 153.24s, Frame: 1885, Count: 7
+Time: 155.66s, Frame: 1914, Count: 7
+Time: 158.02s, Frame: 1943, Count: 7
+Time: 160.36s, Frame: 1972, Count: 7
+Time: 162.68s, Frame: 2001, Count: 7
+Time: 165.02s, Frame: 2030, Count: 8
+Time: 167.34s, Frame: 2059, Count: 8
+Time: 169.74s, Frame: 2088, Count: 8
+Time: 172.08s, Frame: 2117, Count: 8
+Time: 174.42s, Frame: 2146, Count: 9
+Time: 176.77s, Frame: 2175, Count: 10
+Time: 179.15s, Frame: 2204, Count: 10
+Time: 181.51s, Frame: 2233, Count: 10
+Time: 183.85s, Frame: 2262, Count: 10
+Time: 186.20s, Frame: 2291, Count: 11
+Time: 188.56s, Frame: 2320, Count: 11
+Time: 190.92s, Frame: 2349, Count: 11
+Time: 193.31s, Frame: 2378, Count: 12
+Time: 195.70s, Frame: 2407, Count: 12
+Time: 198.01s, Frame: 2436, Count: 12
+Time: 200.32s, Frame: 2465, Count: 13
+Time: 202.64s, Frame: 2494, Count: 13
+Time: 204.92s, Frame: 2523, Count: 13
+Time: 207.26s, Frame: 2552, Count: 13
+Time: 209.62s, Frame: 2581, Count: 14
+Time: 212.02s, Frame: 2610, Count: 14
+Time: 214.37s, Frame: 2639, Count: 15
+Time: 216.71s, Frame: 2668, Count: 16
+Time: 219.06s, Frame: 2697, Count: 16
+Time: 221.39s, Frame: 2726, Count: 16

@@ -1,0 +1,19 @@
+{
+  "predictions": [
+    {
+      "x": 275.0546875,
+      "y": 246.2347412109375,
+      "width": 405.890625,
+      "height": 328.7974853515625,
+      "confidence": 0.6787497997283936,
+      "class": "bag",
+      "class_id": 6,
+      "detection_id": "bag_0"
+    }
+  ],
+  "image": {
+    "width": 478,
+    "height": 850
+  },
+  "count": 1
+}

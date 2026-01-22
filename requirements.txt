@@ -1,0 +1,35 @@
+# Core ML and Computer Vision
+ultralytics>=8.0.0
+torch>=2.0.0
+torchvision>=0.15.0
+opencv-python>=4.8.0
+supervision>=0.16.0
+
+# Data Processing
+numpy>=1.24.0
+pandas>=2.0.0
+pillow>=10.0.0
+albumentations>=1.3.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Tracking
+filterpy>=1.4.5
+scikit-image>=0.21.0
+
+# Utilities
+pyyaml>=6.0
+tqdm>=4.65.0
+python-dotenv>=1.0.0
+
+# Logging and Monitoring
+tensorboard>=2.13.0
+wandb>=0.15.0  # Optional: for experiment tracking
+
+# Deployment (Optional)
+onnx>=1.14.0
+onnxruntime-gpu>=1.15.0  # or onnxruntime for CPU
+fastapi>=0.100.0  # For API deployment
+uvicorn>=0.23.0
