@@ -1,58 +1,60 @@
 # Model training configuration for Fillpac bag counting
 
 # Model Selection
-model: yolov8n.pt  # Options: yolov8n, yolov8s, yolov8m (n=nano, s=small, m=medium)
+model: yolov8n.pt # Options: yolov8n, yolov8s, yolov8m (n=nano, s=small, m=medium)
 
 # Training Hyperparameters
-epochs: 50           # Number of training epochs (increase to 100+ for better results)
-batch: 16            # Batch size (adjust based on GPU memory)
-imgsz: 640           # Input image size (640x640)
-device: 0            # GPU device (0 for first GPU, 'cpu' for CPU)
+epochs: 50 # Number of training epochs (increase to 100+ for better results)
+batch: 16 # Batch size (adjust based on GPU memory)
+imgsz: 640 # Input image size (640x640)
+device: 0 # GPU device (0 for first GPU, 'cpu' for CPU)
 
 # Optimization
-optimizer: AdamW     # Optimizer (AdamW, SGD, Adam)
-lr0: 0.001           # Initial learning rate
-lrf: 0.01            # Final learning rate (lr0 * lrf)
-momentum: 0.937      # SGD momentum/Adam beta1
+optimizer: AdamW # Optimizer (AdamW, SGD, Adam)
+lr0: 0.001 # Initial learning rate
+lrf: 0.01 # Final learning rate (lr0 * lrf)
+momentum: 0.937 # SGD momentum/Adam beta1
 weight_decay: 0.0005 # Optimizer weight decay
 
 # Augmentation (for industrial robustness)
-hsv_h: 0.015         # HSV-Hue augmentation (fraction)
-hsv_s: 0.7           # HSV-Saturation augmentation (fraction)
-hsv_v: 0.4           # HSV-Value augmentation (fraction)
-degrees: 10.0        # Rotation (+/- deg)
-translate: 0.1       # Translation (+/- fraction)
-scale: 0.5           # Scaling (+/- gain)
-shear: 0.0           # Shear (+/- deg)
-perspective: 0.0     # Perspective (+/- fraction)
-flipud: 0.0          # Vertical flip (probability)
-fliplr: 0.5          # Horizontal flip (probability)
-mosaic: 1.0          # Mosaic augmentation (probability)
-mixup: 0.1           # MixUp augmentation (probability)
+hsv_h: 0.015 # HSV-Hue augmentation (fraction)
+hsv_s: 0.7 # HSV-Saturation augmentation (fraction)
+hsv_v: 0.4 # HSV-Value augmentation (fraction)
+degrees: 10.0 # Rotation (+/- deg)
+translate: 0.1 # Translation (+/- fraction)
+scale: 0.5 # Scaling (+/- gain)
+shear: 0.0 # Shear (+/- deg)
+perspective: 0.001 # Perspective (+/- fraction) - aligned with industrial camera tilt
+flipud: 0.0 # Vertical flip (probability)
+fliplr: 0.5 # Horizontal flip (probability)
+mosaic: 1.0 # Mosaic augmentation (probability)
+mixup: 0.1 # MixUp augmentation (probability)
+blur: 0.1 # Probability of applying blur (for vibrations)
+erasing: 0.4 # Random erasing (to simulate occlusions)
 
 # Validation
-val: true            # Validate during training
-save: true           # Save checkpoints
-save_period: 10      # Save checkpoint every x epochs
-patience: 20         # Early stopping patience (epochs without improvement)
+val: true # Validate during training
+save: true # Save checkpoints
+save_period: 10 # Save checkpoint every x epochs
+patience: 20 # Early stopping patience (epochs without improvement)
 
 # Inference Settings
-conf: 0.5            # Confidence threshold for detection
-iou: 0.45            # NMS IoU threshold
-max_det: 300         # Maximum detections per image
+conf: 0.5 # Confidence threshold for detection
+iou: 0.45 # NMS IoU threshold
+max_det: 300 # Maximum detections per image
 
 # Logging
 project: runs/detect # Project directory
-name: bag_counter    # Experiment name
-exist_ok: false      # Overwrite existing project/name
-verbose: true        # Verbose output
+name: bag_counter # Experiment name
+exist_ok: false # Overwrite existing project/name
+verbose: true # Verbose output
 
 # Advanced (for Fillpac-specific tuning)
 # Adjust these after initial training if needed
-workers: 8           # Data loader workers
-cache: false         # Cache images (true/ram, disk, or false)
-rect: false          # Rectangular training
-cos_lr: false        # Cosine learning rate scheduler
-close_mosaic: 10     # Disable mosaic augmentation for final epochs
-amp: true            # Automatic Mixed Precision training
-fraction: 1.0        # Dataset fraction to train on (1.0 = all data)
+workers: 8 # Data loader workers
+cache: false # Cache images (true/ram, disk, or false)
+rect: false # Rectangular training
+cos_lr: false # Cosine learning rate scheduler
+close_mosaic: 10 # Disable mosaic augmentation for final epochs
+amp: true # Automatic Mixed Precision training
+fraction: 1.0 # Dataset fraction to train on (1.0 = all data)

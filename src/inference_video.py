@@ -4,15 +4,20 @@ Real-time bag detection and counting for Fillpac conveyor monitoring
 """
 
 import cv2
-import argparse #Allows running the script with options (e.g., --source, --conf)
+import argparse
 import numpy as np 
-from pathlib import Path # For handling file paths
-from datetime import datetime# For timestamping
-from ultralytics import YOLO # YOLOv8 framework
-import supervision as sv # For visualization and tracking
-import threading # For threaded frame reading
-import time #for thread management
-import os #for os operations
+from pathlib import Path
+from datetime import datetime
+from ultralytics import YOLO
+import supervision as sv
+import threading
+import time
+import os
+import logging
+import logging.handlers
+import sys
+from typing import Optional, Tuple
+import yaml
 
 # Ultra-low latency FFMPEG options for RTSP streaming
 # Aggressive settings to minimize buffering and delay
@@ -27,35 +32,153 @@ os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
 )
 
 
+def setup_logging(log_file: Optional[str] = None, level: str = "INFO") -> logging.Logger:
+    """
+    Configure logging for the application.
+    
+    Args:
+        log_file: Path to log file (None for console only)
+        level: Logging level (DEBUG, INFO, WARNING, ERROR)
+    
+    Returns:
+        Configured logger instance
+    """
+    logger = logging.getLogger("BagCounter")
+    logger.setLevel(getattr(logging, level.upper()))
+    
+    # Clear existing handlers
+    logger.handlers.clear()
+    
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_format = logging.Formatter('%(levelname)s: %(message)s')
+    console_handler.setFormatter(console_format)
+    logger.addHandler(console_handler)
+    
+    # File handler (if specified)
+    if log_file:
+        log_path = Path(log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        file_handler = logging.handlers.RotatingFileHandler(
+            log_file,
+            maxBytes=10*1024*1024,  # 10MB
+            backupCount=5
+        )
+        file_handler.setLevel(logging.DEBUG)
+        file_format = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        file_handler.setFormatter(file_format)
+        logger.addHandler(file_handler)
+    
+    return logger
+
+
 from collections import deque
 
+def letterbox(frame, target_size=(478, 850)):
+    """Preserve aspect ratio while resizing (letterboxing)"""
+    h, w = frame.shape[:2]
+    target_w, target_h = target_size
+    scale = min(target_w / w, target_h / h)
+    new_w, new_h = int(w * scale), int(h * scale)
+    
+    resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+    
+    # Create black canvas
+    canvas = np.zeros((target_h, target_w, 3), dtype=np.uint8)
+    pad_x = (target_w - new_w) // 2
+    pad_y = (target_h - new_h) // 2
+    canvas[pad_y:pad_y+new_h, pad_x:pad_x+new_w] = resized
+    return canvas
+
 class ThreadedCamera:
-    """Helper class for threaded frame reading with absolute latest frame delivery"""
-    def __init__(self, source, target_size=None):
-        self.cap = cv2.VideoCapture(source)
-        
-        # Ultra-low latency settings
-        if hasattr(cv2, 'CAP_PROP_BUFFERSIZE'):
-            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)  # Zero buffer for minimum latency
-        
-        # Limit FPS to prevent overwhelming the system
-        # Camera reported 120 FPS which is too high
-        self.cap.set(cv2.CAP_PROP_FPS, 30)  # Cap at 30 FPS for smooth operation
-        
+    """Helper class for threaded frame reading with automatic reconnection"""
+    
+    def __init__(self, source, target_size=None, max_reconnect_attempts=5, reconnect_delay=2.0):
+        self.source = source
         self.target_size = target_size
-        # Deque with maxlen=1 ensures we always have exactly the latest frame
+        self.max_reconnect_attempts = max_reconnect_attempts
+        self.reconnect_delay = reconnect_delay
+        self.logger = logging.getLogger("BagCounter.Camera")
+        
+        # Initialize camera with error handling
+        self.cap = None
+        self._connect_camera()
+        
+        # Frame buffer and state
         self.frame_buffer = deque(maxlen=1)
         self.frame_id = 0
         self.started = False
         self.thread = None
+        self.last_frame_time = time.time()
         
         # Pull first frame
-        ret, frame = self.cap.read()
-        if ret:
-            if self.target_size:
-                frame = cv2.resize(frame, self.target_size)
-            self.frame_buffer.append(frame)
-            self.frame_id = 1
+        if self.cap and self.cap.isOpened():
+            ret, frame = self.cap.read()
+            if ret and self._validate_frame(frame):
+                if self.target_size:
+                    frame = cv2.resize(frame, self.target_size)
+                self.frame_buffer.append(frame)
+                self.frame_id = 1
+                self.logger.info(f"Camera initialized successfully: {self.source}")
+            else:
+                self.logger.warning("Failed to read initial frame")
+    
+    def _connect_camera(self):
+        """Connect to camera with error handling"""
+        try:
+            self.cap = cv2.VideoCapture(self.source)
+            
+            if not self.cap.isOpened():
+                raise RuntimeError(f"Failed to open camera: {self.source}")
+            
+            # Ultra-low latency settings
+            if hasattr(cv2, 'CAP_PROP_BUFFERSIZE'):
+                self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)
+            self.cap.set(cv2.CAP_PROP_FPS, 30)
+            
+            self.logger.info(f"Connected to camera: {self.source}")
+            
+        except Exception as e:
+            self.logger.error(f"Camera connection error: {e}")
+            self.cap = None
+            raise
+    
+    def _reconnect_camera(self):
+        """Attempt to reconnect to camera with exponential backoff"""
+        for attempt in range(self.max_reconnect_attempts):
+            try:
+                self.logger.warning(f"Reconnection attempt {attempt + 1}/{self.max_reconnect_attempts}")
+                
+                if self.cap:
+                    self.cap.release()
+                
+                time.sleep(self.reconnect_delay * (attempt + 1))  # Exponential backoff
+                self._connect_camera()
+                
+                if self.cap and self.cap.isOpened():
+                    self.logger.info("Camera reconnected successfully")
+                    return True
+                    
+            except Exception as e:
+                self.logger.error(f"Reconnection attempt {attempt + 1} failed: {e}")
+        
+        self.logger.error("All reconnection attempts failed")
+        return False
+    
+    @staticmethod
+    def _validate_frame(frame) -> bool:
+        """Validate that frame is not corrupted"""
+        if frame is None:
+            return False
+        if frame.size == 0:
+            return False
+        if len(frame.shape) != 3:
+            return False
+        return True
 
     def start(self):
         if self.started:
@@ -67,31 +190,63 @@ class ThreadedCamera:
         return self
 
     def update(self):
-        target_interval = 1.0 / 30.0  # Target 30 FPS
+        """Background thread that reads frames with automatic reconnection"""
+        target_interval = 1.0 / 30.0
+        consecutive_failures = 0
+        max_consecutive_failures = 10
+        
         while self.started:
             start_time = time.time()
             
-            if not self.cap.isOpened():
-                time.sleep(0.1)
-                continue
-            
-            # Simple approach: just read frames as fast as possible
-            # The deque(maxlen=1) automatically keeps only the latest
-            grabbed, frame = self.cap.read()
-            
-            if grabbed and frame is not None:
-                if self.target_size:
-                    frame = cv2.resize(frame, self.target_size)
-                self.frame_buffer.append(frame)
-                self.frame_id += 1
+            try:
+                # Check if camera is open
+                if not self.cap or not self.cap.isOpened():
+                    self.logger.warning("Camera not open, attempting reconnection")
+                    if not self._reconnect_camera():
+                        self.logger.error("Failed to reconnect, stopping camera thread")
+                        break
+                    consecutive_failures = 0
                 
-                # Frame rate limiting for smooth delivery
-                elapsed = time.time() - start_time
-                sleep_time = target_interval - elapsed
-                if sleep_time > 0:
-                    time.sleep(sleep_time)
-            else:
-                time.sleep(0.001)
+                # Read frame
+                grabbed, frame = self.cap.read()
+                
+                if grabbed and self._validate_frame(frame):
+                    # Resize if needed
+                    if self.target_size:
+                        frame = letterbox(frame, self.target_size)
+                    # Update buffer
+                    self.frame_buffer.append(frame)
+                    self.frame_id += 1
+                    self.last_frame_time = time.time()
+                    consecutive_failures = 0
+                    
+                    # Frame rate limiting
+                    elapsed = time.time() - start_time
+                    sleep_time = target_interval - elapsed
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
+                else:
+                    # Frame read failed
+                    consecutive_failures += 1
+                    self.logger.debug(f"Frame read failed (attempt {consecutive_failures})")
+                    
+                    if consecutive_failures >= max_consecutive_failures:
+                        self.logger.error(f"Too many consecutive failures ({consecutive_failures}), attempting reconnection")
+                        if not self._reconnect_camera():
+                            self.logger.error("Reconnection failed, stopping camera thread")
+                            break
+                        consecutive_failures = 0
+                    
+                    time.sleep(0.01)
+                    
+            except Exception as e:
+                self.logger.error(f"Error in camera update loop: {e}")
+                consecutive_failures += 1
+                if consecutive_failures >= max_consecutive_failures:
+                    if not self._reconnect_camera():
+                        break
+                    consecutive_failures = 0
+                time.sleep(0.1)
 
     def read(self):
         if len(self.frame_buffer) > 0:
@@ -112,40 +267,86 @@ class ThreadedCamera:
 
 
 class BagCounterVideo:
-    """Real-time bag counter for video streams"""
+    """Real-time bag counter for video streams with configuration support"""
     
     def __init__(
         self, 
-        weights_path: str, 
-        conf_threshold: float = 0.5,
-        counting_mode: str = 'line'  # 'line' or 'zone'
+        weights_path: Optional[str] = None,
+        conf_threshold: Optional[float] = None,
+        counting_mode: Optional[str] = None,
+        config_path: Optional[str] = None
     ):
         """
-        Initialize video bag counter
-        
+        Initialize the Bag Counter.
+
+        This system uses a configuration-first approach, where values are loaded from a 
+        YAML file and can be overridden by specific parameters provided during construction.
+
         Args:
-            weights_path: Path to trained YOLO weights
-            conf_threshold: Confidence threshold for detections
-            counting_mode: 'line' for line crossing or 'zone' for zone entry/exit
+            weights_path (str, optional): Overrides model path in config.
+            conf_threshold (float, optional): Overrides confidence threshold.
+            counting_mode (str, optional): 'line' or 'zone'. Overrides config.
+            config_path (str, optional): Path to the system configuration YAML.
+        
+        Raises:
+            RuntimeError: If the YOLO model cannot be loaded.
+            ValueError: If configuration values are semantically invalid.
         """
-        self.model = YOLO(weights_path)
-        self.conf_threshold = conf_threshold
-        self.counting_mode = counting_mode
+        self.logger = logging.getLogger("BagCounter.Detector")
+        
+        # Load and validate configuration
+        self.config = self._load_config(config_path)
+        
+        # Override with constructor parameters & validate types
+        if weights_path:
+            if not os.path.exists(weights_path):
+                raise ValueError(f"Weights file not found: {weights_path}")
+            self.config['model']['weights'] = weights_path
+            
+        if conf_threshold is not None:
+            if not (0.0 <= conf_threshold <= 1.0):
+                raise ValueError("Confidence threshold must be between 0.0 and 1.0")
+            self.config['model']['confidence'] = conf_threshold
+            
+        if counting_mode:
+            if counting_mode not in ['line', 'zone']:
+                raise ValueError("counting_mode must be either 'line' or 'zone'")
+            self.config['counting']['mode'] = counting_mode
+        
+        # Initialize YOLO model with error handling
+        try:
+            model_path = self.config['model']['weights']
+            self.logger.info(f"Loading YOLO model from: {model_path}")
+            self.model = YOLO(model_path)
+            self.logger.info("YOLO model loaded successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to load YOLO model: {e}")
+            raise RuntimeError(f"Could not load model from {model_path}: {e}")
+        
+        self.conf_threshold = self.config['model']['confidence']
+        self.counting_mode = self.config['counting']['mode']
         
         # Check if GPU is available and set half precision if so
         import torch
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.half = (self.device == 'cuda')
-        self.model.to(self.device)
-        if self.half:
-            print("✓ GPU detected, using half-precision inference")
+        self.half = self.config['model'].get('half', False) and (self.device == 'cuda')
         
-        # Tracker for unique bag identification
+        try:
+            self.model.to(self.device)
+            if self.half:
+                self.logger.info("GPU detected, using half-precision inference")
+        except Exception as e:
+            self.logger.warning(f"Failed to move model to {self.device}: {e}")
+        
+        # Tracker for unique bag identification with config
+        track_config = self.config.get('tracking', {})
+        # Use same activation threshold as confidence to avoid double-filtering
         self.tracker = sv.ByteTrack(
-            track_activation_threshold=0.25,
-            lost_track_buffer=90,  # Increased memory for stability
-            minimum_matching_threshold=0.7,
-            minimum_consecutive_frames=2
+            track_activation_threshold=self.conf_threshold,
+            lost_track_buffer=self.config['tracking'].get('lost_track_buffer', 30),
+            minimum_matching_threshold=self.config['tracking'].get('minimum_matching_threshold', 0.6),
+            frame_rate=30,
+            minimum_consecutive_frames=1
         )
         
         # Annotators
@@ -153,15 +354,14 @@ class BagCounterVideo:
         self.label_annotator = sv.LabelAnnotator(text_thickness=2, text_scale=0.5)
         self.trace_annotator = sv.TraceAnnotator(thickness=2, trace_length=30)
         
-        # Region of Interest (ROI) - covering only the conveyor belt
-        # Points based on TRAINING DATA: 478x850 (WxH)
-        # Training annotations show bags in center region (normalized x: 0.2-0.8, y: 0.2-0.6)
-        self.roi_polygon = np.array([
-            [50, 850],   # Bottom Left
-            [428, 850],  # Bottom Right (478-50 to stay within frame width)
-            [350, 150],  # Top Right
-            [80, 150]    # Top Left
-        ])
+        # Region of Interest (ROI) - from config
+        roi_config = self.config.get('roi', {})
+        if roi_config.get('enabled', True):
+            self.roi_polygon = np.array(roi_config.get('polygon', [[0, 450], [0, 50], [478, 50], [478, 450]]))
+            self.roi_zone = sv.PolygonZone(polygon=self.roi_polygon)
+        else:
+            self.roi_polygon = None
+            self.roi_zone = None
         
         # Shared state for async/sync inference
         self.last_processed_frame = None
@@ -173,6 +373,61 @@ class BagCounterVideo:
         
         # Logging
         self.count_log = []
+
+    def _load_config(self, config_path: Optional[str]) -> dict:
+        """
+        Load system configuration with default fallback values.
+
+        Merging strategy: Default values are provided for all critical parameters. 
+        If a config file exists, its values will override the defaults. 
+        Deep merging is performed only on top-level sections.
+
+        Args:
+            config_path (str, optional): Path to the YAML configuration file.
+
+        Returns:
+            dict: The resolved configuration dictionary.
+        """
+        defaults = {
+            'camera': {'buffer_size': 0, 'fps_limit': 30, 'reconnect_attempts': 5, 'reconnect_delay': 2.0},
+            'model': {'weights': 'models/weights/best.pt', 'confidence': 0.25, 'imgsz': 416, 'half': True},
+            'roi': {'enabled': False, 'polygon': [[0, 850], [0, 0], [478, 0], [478, 850]]},
+            'counting': {
+                'mode': 'line', 
+                'min_area': 500,
+                'direction': 'both',
+                'trigger_anchor': 'center',
+                'line': {'start': [0, 425], 'end': [478, 425]}
+            },
+            'display': {'window_name': 'Fillpac Bag Counter', 'show_fps': True, 'show_count': True, 'show_tracking_ids': True, 'diagnostic_mode': True},
+            'logging': {'level': 'INFO', 'file': 'logs/inference.log', 'max_bytes': 10485760, 'backup_count': 5},
+            'tracking': {'track_activation_threshold': 0.25, 'lost_track_buffer': 90, 'minimum_matching_threshold': 0.7, 'minimum_consecutive_frames': 2}
+        }
+        
+        if config_path:
+            if not os.path.exists(config_path):
+                self.logger.warning(f"Config file not found at {config_path}. Using defaults.")
+            else:
+                try:
+                    with open(config_path, 'r') as f:
+                        user_config = yaml.safe_load(f)
+                        if not isinstance(user_config, dict):
+                            raise ValueError("Config file must be a valid YAML dictionary")
+                        
+                        # Merge user config with defaults deeply
+                        for section, values in user_config.items():
+                            if section in defaults:
+                                if isinstance(values, dict):
+                                    defaults[section].update(values)
+                                else:
+                                    defaults[section] = values
+                            else:
+                                defaults[section] = values
+                    self.logger.info(f"Loaded configuration from {config_path}")
+                except Exception as e:
+                    self.logger.error(f"Error parsing config file: {e}. Using defaults.")
+        
+        return defaults
         
     def _inference_loop(self, cap):
         """Background thread for continuous YOLO inference"""
@@ -198,84 +453,139 @@ class BagCounterVideo:
             
             detections = sv.Detections.from_ultralytics(results)
             
-            # Filter by ROI and Area
-            mask = sv.PolygonZone(polygon=self.roi_polygon).trigger(detections)
-            detections = detections[mask]
-            detections = detections[detections.area > 2000]
+            # Filter by ROI
+            if self.roi_zone:
+                mask = self.roi_zone.trigger(detections)
+                detections = detections[mask]
+                
+            # Filter by area if needed
+            min_area = self.config['counting'].get('min_area', 500)
+            valid_mask = detections.area > min_area
+            self.valid_detections = detections[valid_mask]
+            self.filtered_detections = detections[~valid_mask]
             
             # Track and Update state
-            tracked = self.tracker.update_with_detections(detections)
+            tracked = self.tracker.update_with_detections(self.valid_detections)
             
             with self.inference_lock:
                 self.last_processed_frame = frame.copy()
                 self.last_tracked_detections = tracked
-                if self.counting_mode == 'line':
-                    self.line_zone.trigger(tracked)
-                    self.current_count = self.line_zone.in_count  # Only IN count
-                else:
-                    self.line_zone.trigger(tracked)
-                    self.current_count = self.line_zone.count
+                self.filtered_detections = filtered_detections # Store for diagnostic display
+                
+                # Check for triggers
+                prev_in = self.line_zone.in_count
+                prev_out = self.line_zone.out_count
+                
+                self.line_zone.trigger(tracked)
+                
+                # Update current count based on direction mode
+                direction = self.config['counting'].get('direction', 'both')
+                if direction == 'in':
+                    self.current_count = self.line_zone.in_count
+                elif direction == 'out':
+                    self.current_count = self.line_zone.out_count
+                else: # both
+                    self.current_count = self.line_zone.in_count + self.line_zone.out_count
+                
+                # Trigger "pulse" effect if count increased
+                if self.line_zone.in_count > prev_in or self.line_zone.out_count > prev_out:
+                    self.last_trigger_time = time.time()
 
-    def setup_counting_zone(self, frame_shape: tuple, zone_config: dict = None):
+    def setup_counting_zone(self, frame_shape: tuple):
         """
-        Setup counting line or zone
+        Configure the counting boundary (line or polygon zone).
         
+        This method initializes the line or zone based on the loaded configuration
+        and the dimensions of the input video stream.
+
         Args:
-            frame_shape: (height, width, channels) of video frame
-            zone_config: Custom zone configuration (optional)
+            frame_shape (tuple): The (height, width) or (height, width, channels) of the frame.
+        
+        Raises:
+            ValueError: If frame_shape is invalid.
         """
+        if not isinstance(frame_shape, (tuple, list)) or len(frame_shape) < 2:
+            raise ValueError(f"Invalid frame_shape provided: {frame_shape}")
+            
         height, width = frame_shape[:2]
+        config_counting = self.config.get('counting', {})
         
-        if zone_config is None:
-            # Default: horizontal line at 60% of frame height (for conveyor exit)
-            if self.counting_mode == 'line':
-                # Use BOTTOM_CENTER for more stable crossing detection on conveyors
-                start_point = sv.Point(0, int(height * 0.5))
-                end_point = sv.Point(width, int(height * 0.5))
-                self.line_zone = sv.LineZone(
-                    start=start_point, 
-                    end=end_point,
-                    triggering_anchors=[sv.Position.BOTTOM_CENTER]
-                )
-                self.zone_annotator = sv.LineZoneAnnotator(
-                    thickness=4,
-                    text_thickness=2,
-                    text_scale=1.5,
-                    display_in_count=True,
-                    display_out_count=True  # Show both IN and OUT
-                )
-            else:
-                # Zone mode: bottom 40% of frame
-                polygon = np.array([
-                    [0, int(height * 0.6)],
-                    [width, int(height * 0.6)],
-                    [width, height],
-                    [0, height]
-                ])
-                self.line_zone = sv.PolygonZone(polygon=polygon)
-                self.zone_annotator = sv.PolygonZoneAnnotator(
-                    zone=self.line_zone,
-                    color=sv.Color.red(),
-                    thickness=2,
-                    text_thickness=2,
-                    text_scale=1
-                )
+        if self.counting_mode == 'line':
+            line_cfg = config_counting.get('line', {})
+            start_cfg = line_cfg.get('start', [0, int(height * 0.5)])
+            end_cfg = line_cfg.get('end', [width, int(height * 0.5)])
+            
+            start_point = sv.Point(int(start_cfg[0]), int(start_cfg[1]))
+            end_point = sv.Point(int(end_cfg[0]), int(end_cfg[1]))
+            
+            anchor_map = {
+                'center': sv.Position.CENTER,
+                'bottom_center': sv.Position.BOTTOM_CENTER,
+                'top_center': sv.Position.TOP_CENTER
+            }
+            anchor = anchor_map.get(config_counting.get('trigger_anchor', 'center'), sv.Position.CENTER)
+            
+            self.line_zone = sv.LineZone(
+                start=start_point, 
+                end=end_point,
+                triggering_anchors=[anchor]
+            )
+            self.zone_annotator = sv.LineZoneAnnotator(
+                thickness=4,
+                text_thickness=2,
+                text_scale=1.5,
+                display_in_count=True,
+                display_out_count=True
+            )
+        else:
+            # Zone mode
+            zone_cfg = config_counting.get('zone', {})
+            poly_cfg = zone_cfg.get('polygon', [
+                [0, int(height * 0.6)],
+                [width, int(height * 0.6)],
+                [width, height],
+                [0, height]
+            ])
+            polygon = np.array(poly_cfg)
+            self.line_zone = sv.PolygonZone(polygon=polygon)
+            self.zone_annotator = sv.PolygonZoneAnnotator(
+                zone=self.line_zone,
+                color=sv.Color.red(),
+                thickness=2,
+                text_thickness=2,
+                text_scale=1
+            )
         
-        print(f"✓ Counting zone configured: {self.counting_mode} mode")
+        self.logger.info(f"Counting zone configured: {self.counting_mode} mode")
     
     def process_video(
         self, 
         video_source: str, 
-        output_path: str = None,
+        output_path: Optional[str] = None,
         display: bool = True,
-        log_file: str = None,
+        log_file: Optional[str] = None,
         sync_mode: bool = False
     ):
         """
-        Process video and count bags with zero-latency streaming support
+        The main processing entry point for a video stream.
+        
+        This method orchestrates the threaded reading, async inference (if applicable), 
+        logic for line crossing/zone triggers, and visual display/saving.
+
+        Args:
+            video_source (str): File path, RTSP/HTTP URL, or camera index.
+            output_path (str, optional): Destination for saved annotated video (.mp4).
+            display (bool): Whether to show the OpenCV window. Defaults to True.
+            log_file (str, optional): Destination for the frame-by-frame counting log.
+            sync_mode (bool): If True, processes synchronously (waits for each frame). 
+                            If False (default), stays in zero-latency/async mode.
         """
-        # Open video
-        is_live = isinstance(video_source, int) or video_source.isdigit() or video_source.startswith(('rtsp://', 'http://', 'https://'))
+        # Type validation for critical parameters
+        if not video_source:
+            raise ValueError("video_source cannot be empty")
+            
+        # 1. Open video source with ThreadedCamera
+        is_live = str(video_source).isdigit() or str(video_source).startswith(('rtsp://', 'http://', 'https://'))
         
         # Target dimensions for training consistency
         target_width, target_height = 478, 850
@@ -369,54 +679,105 @@ class BagCounterVideo:
                         tracked_detections = self.last_tracked_detections
                         current_count = self.current_count
                 else:
-                    if frame_count % 2 == 0: 
-                        proc_frame = cv2.resize(frame, (target_width, target_height))
-                        results = self.model(proc_frame, conf=self.conf_threshold, classes=[0], verbose=False, half=self.half, imgsz=416)[0]
-                        detections = sv.Detections.from_ultralytics(results)
-                        mask = sv.PolygonZone(polygon=self.roi_polygon).trigger(detections)
+                    # Processing for video files
+                    proc_frame = letterbox(frame, (target_width, target_height))
+                    results = self.model(proc_frame, conf=self.conf_threshold, classes=[0], verbose=False, half=self.half, imgsz=416)[0]
+                    detections = sv.Detections.from_ultralytics(results)
+                    
+                    if self.roi_zone:
+                        mask = self.roi_zone.trigger(detections)
                         detections = detections[mask]
-                        detections = detections[detections.area > 2000]
-                        tracked_detections = self.tracker.update_with_detections(detections)
-                        if self.counting_mode == 'line':
-                            self.line_zone.trigger(tracked_detections)
-                            current_count = self.line_zone.in_count  # Only IN count
-                        else:
-                            self.line_zone.trigger(tracked_detections)
-                            current_count = self.line_zone.count
-                        frame = proc_frame
+                        
+                    # Filter by area
+                    min_area = self.config['counting'].get('min_area', 500)
+                    valid_mask = detections.area > min_area
+                    self.valid_detections = detections[valid_mask]
+                    self.filtered_detections = detections[~valid_mask]
+                    
+                    tracked_detections = self.tracker.update_with_detections(self.valid_detections)
+                    
+                    # Check for triggers
+                    prev_in = self.line_zone.in_count
+                    prev_out = self.line_zone.out_count
+                    self.line_zone.trigger(tracked_detections)
+                    
+                    # Update current count based on direction mode
+                    direction = self.config['counting'].get('direction', 'both')
+                    if direction == 'in':
+                        current_count = self.line_zone.in_count
+                    elif direction == 'out':
+                        current_count = self.line_zone.out_count
+                    else: # both
+                        current_count = self.line_zone.in_count + self.line_zone.out_count
+                        
+                    # Trigger "pulse" effect
+                    if self.line_zone.in_count > prev_in or self.line_zone.out_count > prev_out:
+                        self.last_trigger_time = time.time()
+                        
+                    frame = proc_frame
 
                 if display or writer:
                     scene = frame.copy()
-                    cv2.polylines(scene, [self.roi_polygon], True, (255, 255, 0), 2)
-                    if tracked_detections.tracker_id is not None:
-                        # Removed trace_annotator for stable FPS during motion
+                    
+                    # Annotate detections
+                    if tracked_detections.tracker_id is not None and len(tracked_detections.tracker_id) > 0:
                         scene = self.box_annotator.annotate(scene=scene, detections=tracked_detections)
                         labels = [f"#{tid}" for tid in tracked_detections.tracker_id]
                         scene = self.label_annotator.annotate(scene=scene, detections=tracked_detections, labels=labels)
-                    else:
-                        scene = self.box_annotator.annotate(scene=scene, detections=tracked_detections)
                     
+                    # Show raw detections in light-blue if tracker hasn't caught them yet
+                    # This helps debug if detection is happening at all
+                    if hasattr(self, 'valid_detections') and len(self.valid_detections) > 0:
+                        raw_color = (255, 255, 0) # Cyan
+                        for bbox in self.valid_detections.xyxy:
+                            x1, y1, x2, y2 = map(int, bbox)
+                            cv2.rectangle(scene, (x1, y1), (x2, y2), raw_color, 1, lineType=cv2.LINE_AA)
+                            cv2.putText(scene, "detecting...", (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.4, raw_color, 1)
+
+                    # Diagnostic View: Show filtered (small) detections
+                    if self.config['display'].get('diagnostic_mode', True) and hasattr(self, 'filtered_detections'):
+                        for bbox in self.filtered_detections.xyxy:
+                            x1, y1, x2, y2 = map(int, bbox)
+                            cv2.rectangle(scene, (x1, y1), (x2, y2), (100, 100, 100), 1)
+                            cv2.putText(scene, "small", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (100, 100, 100), 1)
+                    
+                    # Annotate counting zone with pulse effect
                     if self.counting_mode == 'line':
                         annotated_frame = self.zone_annotator.annotate(frame=scene, line_counter=self.line_zone)
+                        
+                        # Dynamic line color pulse
+                        line_color = (0, 0, 255) # Red default
+                        if hasattr(self, 'last_trigger_time') and (time.time() - self.last_trigger_time < 0.3):
+                            line_color = (0, 255, 0) # Green pulse
+                            
+                        cv2.line(annotated_frame, 
+                                 (int(self.line_zone.vector.start.x), int(self.line_zone.vector.start.y)),
+                                 (int(self.line_zone.vector.end.x), int(self.line_zone.vector.end.y)),
+                                 line_color, 4)
                     else:
                         annotated_frame = self.zone_annotator.annotate(scene=scene)
                     
+                    # Draw diagnostic info
                     info_text = [
                         f"Bags Counted: {current_count}",
                         f"Display FPS: {actual_fps:.1f}",
-                        f"Sync: {'Synchronized (Delayed)' if sync_mode else 'Zero-Latency (Real-Time)'}"
+                        f"Confidence: {self.conf_threshold:.2f}",
+                        f"Direction: {self.config['counting'].get('direction', 'both').upper()}"
                     ]
                     y = 30
                     for text in info_text:
-                        cv2.putText(annotated_frame, text, (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                        cv2.putText(annotated_frame, text, (15, y), 
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
                         y += 30
 
                     if writer: writer.write(annotated_frame)
                     if display:
-                        cv2.imshow('Fillpac Zero-Latency Bag Counter', annotated_frame)
-                        # Non-blocking waitKey for maximum responsiveness
+                        window_name = self.config.get('display', {}).get('window_name', 'Fillpac Bag Counter')
+                        cv2.imshow(window_name, annotated_frame)
                         key = cv2.waitKey(1) & 0xFF
-                        if key == ord('q'): break
+                        if key == ord('q'): 
+                            self.logger.info("User quit with 'q'")
+                            break
                 
                 if frame_count % fps == 0:
                     self.count_log.append({'timestamp': (datetime.now() - start_time).total_seconds(), 'frame': frame_count, 'count': current_count})
@@ -463,23 +824,38 @@ class BagCounterVideo:
 def main():
     """Main video inference script"""
     parser = argparse.ArgumentParser(description='Count bags in video using YOLO')
-    parser.add_argument('--weights', type=str, default='models/weights/best.pt',
-                       help='Path to trained weights')
+    parser.add_argument('--config', type=str, help='Path to YAML config file')
+    parser.add_argument('--weights', type=str, help='Path to trained weights (overrides config)')
     parser.add_argument('--source', type=str, required=True,
                        help='Path to video file or camera index (0 for webcam)')
-    parser.add_argument('--conf', type=float, default=0.5,
-                       help='Confidence threshold (0-1)')
-    parser.add_argument('--mode', type=str, default='line', choices=['line', 'zone'],
-                       help='Counting mode: line crossing or zone entry')
+    parser.add_argument('--conf', type=float, help='Confidence threshold (overrides config)')
+    parser.add_argument('--mode', type=str, choices=['line', 'zone'],
+                       help='Counting mode (overrides config)')
     parser.add_argument('--output', type=str, help='Path to save annotated video')
     parser.add_argument('--log', type=str, help='Path to save count log')
     parser.add_argument('--no-display', action='store_true', help='Disable display')
-    parser.add_argument('--sync', action='store_true', help='Sync video with detections (adds slight delay)')
+    parser.add_argument('--sync', action='store_true', help='Sync video with detections')
     
     args = parser.parse_args()
     
-    # Initialize counter
-    counter = BagCounterVideo(args.weights, args.conf, args.mode)
+    # 1. Initialize logging first (temporary counter to get config for logging)
+    temp_counter = BagCounterVideo(config_path=args.config)
+    log_cfg = temp_counter.config.get('logging', {})
+    setup_logging(
+        log_file=args.log or log_cfg.get('file'),
+        level=log_cfg.get('level', 'INFO')
+    )
+    
+    logger = logging.getLogger("BagCounter")
+    logger.info("Initializing Fillpac Bag Counter...")
+    
+    # 2. Re-initialize counter with proper overrides for model settings
+    counter = BagCounterVideo(
+        weights_path=args.weights,
+        conf_threshold=args.conf,
+        counting_mode=args.mode,
+        config_path=args.config
+    )
     
     # Process video
     counter.process_video(

@@ -92,81 +92,103 @@ class DatasetPreparer:
     
     #Convert labelimg to yolo (Lines 88-130) (data->Image->train/val/test)
     #frames saved from images to labels(data->Label->train/val/test)
-    def convert_labelimg_to_yolo(self, xml_dir: str, output_label_dir: str):
+    def convert_labelimg_to_yolo(self, xml_dir: str, image_dir: str, output_label_dir: str):
         """
-        Convert LabelImg XML annotations to YOLO format
+        Convert LabelImg XML annotations to YOLO format.
         
-        Args:
-            xml_dir: Directory containing XML files
-            output_label_dir: Directory to save YOLO format labels
+        Note: This method now validates dimensions using the actual image file
+        to prevent coordinate skew if the XML 'size' tag is incorrect.
         """
-        # Note: Requires xml.etree.ElementTree
         import xml.etree.ElementTree as ET
         
         xml_path = Path(xml_dir)
+        img_path = Path(image_dir)
         output_path = Path(output_label_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
+        converted_count = 0
         for xml_file in xml_path.glob('*.xml'):
             tree = ET.parse(xml_file)
             root = tree.getroot()
             
-            # Get image dimensions
-            size = root.find('size')
-            img_width = int(size.find('width').text)
-            img_height = int(size.find('height').text)
+            # Try to get image dimensions from file for better correctness
+            img_file = img_path / f"{xml_file.stem}.jpg"
+            if not img_file.exists():
+                img_file = img_path / f"{xml_file.stem}.png"
             
-            # Convert each object
+            if img_file.exists():
+                img = cv2.imread(str(img_file))
+                if img is not None:
+                    img_height, img_width = img.shape[:2]
+                else:
+                    size = root.find('size')
+                    img_width = int(size.find('width').text)
+                    img_height = int(size.find('height').text)
+            else:
+                size = root.find('size')
+                img_width = int(size.find('width').text)
+                img_height = int(size.find('height').text)
+            
+            if img_width == 0 or img_height == 0:
+                print(f"Warning: Skipping {xml_file.name} due to zero dimensions")
+                continue
+            
             yolo_annotations = []
             for obj in root.findall('object'):
-                class_name = obj.find('name').text
-                if class_name != 'bag':
-                    continue  # Skip non-bag objects
+                class_name = obj.find('name').text.strip().lower()
+                if class_name != 'bag': continue
                 
                 bbox = obj.find('bndbox')
-                xmin = int(bbox.find('xmin').text)
-                ymin = int(bbox.find('ymin').text)
-                xmax = int(bbox.find('xmax').text)
-                ymax = int(bbox.find('ymax').text)
+                xmin = float(bbox.find('xmin').text)
+                ymin = float(bbox.find('ymin').text)
+                xmax = float(bbox.find('xmax').text)
+                ymax = float(bbox.find('ymax').text)
                 
-                # Convert to YOLO format (normalized center x, y, width, height)
+                # Correctness fix: Boundary clipping
+                xmin = max(0, min(xmin, img_width))
+                xmax = max(0, min(xmax, img_width))
+                ymin = max(0, min(ymin, img_height))
+                ymax = max(0, min(ymax, img_height))
+                
                 x_center = ((xmin + xmax) / 2) / img_width
                 y_center = ((ymin + ymax) / 2) / img_height
                 width = (xmax - xmin) / img_width
                 height = (ymax - ymin) / img_height
                 
-                # Class ID 0 for 'bag'
                 yolo_annotations.append(f"0 {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}")
             
-            # Save YOLO format label
             if yolo_annotations:
                 label_file = output_path / f"{xml_file.stem}.txt"
                 with open(label_file, 'w') as f:
                     f.write('\n'.join(yolo_annotations))
+                converted_count += 1
         
-        print(f"✓ Converted {len(list(xml_path.glob('*.xml')))} XML files to YOLO format")
+        print(f"✓ Converted {converted_count} valid XML files to YOLO format")
     #split dataset into train/val/test (Lines 149-193)
     def split_dataset(
         self, 
         images_dir: str, 
         labels_dir: str, 
         train_ratio: float = 0.8, 
-        val_ratio: float = 0.1
+        val_ratio: float = 0.1,
+        seed: int = 42
     ):
         """
-        Split dataset into train/val/test sets
-        
-        Args:
-            images_dir: Directory containing all images
-            labels_dir: Directory containing all labels
-            train_ratio: Proportion for training (default: 0.8)
-            val_ratio: Proportion for validation (default: 0.1)
+        Split dataset into train/val/test sets.
+        Correctness fix: Fixed seed for reproducibility and filters for images that have labels.
         """
         images_path = Path(images_dir)
         labels_path = Path(labels_dir)
         
-        # Get all image files
-        image_files = list(images_path.glob('*.jpg')) + list(images_path.glob('*.png'))
+        # Get all image files that have corresponding labels
+        all_image_files = list(images_path.glob('*.jpg')) + list(images_path.glob('*.png'))
+        image_files = [f for f in all_image_files if (labels_path / f"{f.stem}.txt").exists()]
+        
+        if len(image_files) < len(all_image_files):
+            print(f"ℹ Found {len(all_image_files)-len(image_files)} images without labels. These will be skipped.")
+            
+        # Correctness fix: Use fixed random seed for reproducible splits
+        np.random.seed(seed)
         np.random.shuffle(image_files)
         
         total = len(image_files)
@@ -179,20 +201,18 @@ class DatasetPreparer:
             'test': image_files[val_end:]
         }
         
-
         for split_name, files in splits.items():
             for img_file in tqdm(files, desc=f"Copying {split_name} set"):
                 # Copy image
                 dst_img = self.output_dir / 'images' / split_name / img_file.name
-                shutil.copy(img_file, dst_img)
+                shutil.copy(str(img_file), str(dst_img))
                 
                 # Copy corresponding label
                 label_file = labels_path / f"{img_file.stem}.txt"
-                if label_file.exists():
-                    dst_label = self.output_dir / 'labels' / split_name / label_file.name
-                    shutil.copy(label_file, dst_label)
+                dst_label = self.output_dir / 'labels' / split_name / label_file.name
+                shutil.copy(str(label_file), str(dst_label))
         
-        print(f"✓ Dataset split: Train={len(splits['train'])}, Val={len(splits['val'])}, Test={len(splits['test'])}")
+        print(f"✓ Reproducible dataset split: Train={len(splits['train'])}, Val={len(splits['val'])}, Test={len(splits['test'])}")
     #create augmentation pipeline (Lines 196-238)
 
     def create_augmentation_pipeline(self) -> A.Compose:
@@ -218,64 +238,22 @@ class DatasetPreparer:
       # and updates bounding boxes correctly.
       # Augmented images and their corresponding labels are saved with new filenames.
 
-    def augment_dataset(self, split: str = 'train', augment_factor: int = 2):
-        """
-        Apply augmentation to increase dataset size
-        
-        Args:
-            split: Dataset split to augment ('train', 'val', or 'test')
-            augment_factor: Number of augmented versions per image
-        """
-        transform = self.create_augmentation_pipeline()
-        
-        images_dir = self.output_dir / 'images' / split
-        labels_dir = self.output_dir / 'labels' / split
-        
-        image_files = list(images_dir.glob('*.jpg')) + list(images_dir.glob('*.png'))
-        
-        for img_file in tqdm(image_files, desc=f"Augmenting {split} set"):
-            image = cv2.imread(str(img_file))
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            
-            # Read YOLO labels
-            label_file = labels_dir / f"{img_file.stem}.txt"
-            if not label_file.exists():
-                continue
-            
-            with open(label_file, 'r') as f:
-                lines = f.readlines()
-            
-            bboxes = []
-            class_labels = []
-            for line in lines:
-                parts = line.strip().split()
-                class_labels.append(int(parts[0]))
-                bboxes.append([float(x) for x in parts[1:]])
-            
-            # Generate augmented versions
-            for i in range(augment_factor):
-                try:
-                    transformed = transform(image=image, bboxes=bboxes, class_labels=class_labels)
-                    aug_image = transformed['image']
-                    aug_bboxes = transformed['bboxes']
-                    aug_labels = transformed['class_labels']
-                    
-                    # Save augmented image
-                    aug_img_name = f"{img_file.stem}_aug{i}{img_file.suffix}"
-                    aug_img_path = images_dir / aug_img_name
-                    cv2.imwrite(str(aug_img_path), cv2.cvtColor(aug_image, cv2.COLOR_RGB2BGR))
-                    
-                    # Save augmented labels
-                    aug_label_path = labels_dir / f"{img_file.stem}_aug{i}.txt"
-                    with open(aug_label_path, 'w') as f:
-                        for cls, bbox in zip(aug_labels, aug_bboxes):
-                            f.write(f"{cls} {' '.join([f'{x:.6f}' for x in bbox])}\n")
-                
-                except Exception as e:
-                    print(f"Warning: Failed to augment {img_file.name}: {e}")
-                    continue
-        
         print(f"✓ Augmented {split} set with factor {augment_factor}")
+    
+    def generate_data_yaml(self, nc: int = 1, names: list = ['bag']):
+        """Generate a basic data.yaml file for YOLO training"""
+        data = {
+            'path': str(self.output_dir.absolute()),
+            'train': 'images/train',
+            'val': 'images/val',
+            'test': 'images/test',
+            'nc': nc,
+            'names': names
+        }
+        yaml_path = self.output_dir / 'data.yaml'
+        with open(yaml_path, 'w') as f:
+            yaml.dump(data, f, default_flow_style=False)
+        print(f"✓ Generated data.yaml in {self.output_dir}")
 
 
 def main():
@@ -294,20 +272,29 @@ def main():
     preparer = DatasetPreparer(args.raw, args.output)
     
     if args.extract_video:
+        frames_dir = os.path.join(args.raw, 'extracted_frames')
         preparer.extract_frames_from_video(
             args.extract_video, 
-            os.path.join(args.raw, 'extracted_frames'),
+            frames_dir,
             args.frame_interval
         )
+        print(f"Next: Annotate frames in {frames_dir} using LabelImg")
     
-    if args.augment:
-        preparer.augment_dataset('train', augment_factor=2)
+    # Example full workflow if data exists
+    raw_images = preparer.raw_dir / 'images'
+    raw_xmls = preparer.raw_dir / 'annotations'
+    temp_labels = preparer.raw_dir / 'temp_yolo_labels'
+    
+    if raw_images.exists() and raw_xmls.exists():
+        print("\nFound raw images and XMLs. Processing...")
+        preparer.convert_labelimg_to_yolo(str(raw_xmls), str(raw_images), str(temp_labels))
+        preparer.split_dataset(str(raw_images), str(temp_labels))
+        preparer.generate_data_yaml()
+        
+        if args.augment:
+            preparer.augment_dataset('train', augment_factor=2)
     
     print("\n✓ Data preparation complete!")
-    print(f"Next steps:")
-    print(f"1. Annotate images in {args.output} using Roboflow or LabelImg")
-    print(f"2. Run split_dataset() to organize train/val/test sets")
-    print(f"3. Update config/data.yaml with correct paths")
 
 
 if __name__ == '__main__':

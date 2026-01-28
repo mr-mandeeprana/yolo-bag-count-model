@@ -5,9 +5,13 @@ Fine-tunes YOLOv8 on Fillpac bag dataset
 
 import os
 import yaml
+import shutil
+import logging
 from pathlib import Path
-from ultralytics import YOLO
+from typing import Optional, Dict
 import torch
+from ultralytics import YOLO
+from src.evaluate import BagDetectionEvaluator
 
 
 class BagDetectionTrainer:
@@ -15,16 +19,15 @@ class BagDetectionTrainer:
     
     def __init__(self, config_path: str = 'config/model_config.yaml'):
         """
-        Initialize trainer with configuration
-        
-        Args:
-            config_path: Path to model configuration YAML
+        Initialize trainer with configuration.
         """
+        self.config_path = config_path
         with open(config_path, 'r') as f:
             self.config = yaml.safe_load(f)
         
         self.model = None
         self.results = None
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         
     def setup_model(self):
         """Load pre-trained YOLO model"""
@@ -87,11 +90,13 @@ class BagDetectionTrainer:
             'translate': self.config.get('translate', 0.1),
             'scale': self.config.get('scale', 0.5),
             'shear': self.config.get('shear', 0.0),
-            'perspective': self.config.get('perspective', 0.0),
+            'perspective': self.config.get('perspective', 0.001),
             'flipud': self.config.get('flipud', 0.0),
             'fliplr': self.config.get('fliplr', 0.5),
             'mosaic': self.config.get('mosaic', 1.0),
             'mixup': self.config.get('mixup', 0.1),
+            'blur': self.config.get('blur', 0.1),
+            'erasing': self.config.get('erasing', 0.4),
         }
         
         # Merge parameters
@@ -113,29 +118,54 @@ class BagDetectionTrainer:
             shutil.copy(best_weights, weights_dir / 'best.pt')
             print(f"✓ Best model saved to: {weights_dir / 'best.pt'}")
     
-    def validate(self, data_yaml: str = 'config/data.yaml'):
+    def validate(self, data_yaml: str = 'config/data.yaml', production_config: str = 'config/video_config.yaml'):
         """
-        Validate the trained model
-        
-        Args:
-            data_yaml: Path to dataset configuration
+        Validate model using both standard mAP and production-ready counting metrics.
         """
         if self.model is None:
-            print("Error: No model loaded. Train or load a model first.")
-            return
-        
-        print("\nRunning validation...")
-        metrics = self.model.val(data=data_yaml)
+            print("⚠ No model loaded. Attempting to load best.pt...")
+            weights = Path('models/weights/best.pt')
+            if weights.exists():
+                self.model = YOLO(weights)
+            else:
+                print("Error: Could not find trained weights to validate.")
+                return
         
         print(f"\n{'='*60}")
-        print(f"Validation Metrics")
+        print(f"Running Comprehensive Validation (Industrial Focus)")
         print(f"{'='*60}")
-        print(f"mAP@0.5: {metrics.box.map50:.4f}")
-        print(f"mAP@0.5:0.95: {metrics.box.map:.4f}")
-        print(f"Precision: {metrics.box.mp:.4f}")
-        print(f"Recall: {metrics.box.mr:.4f}")
-        print(f"{'='*60}\n")
         
+        # 1. Standard Object Detection Metrics
+        print("\n[Part 1] Standard YOLO Metrics:")
+        metrics = self.model.val(data=data_yaml, verbose=False)
+        print(f"  mAP@0.5: {metrics.box.map50:.4f}")
+        print(f"  Precision: {metrics.box.mp:.4f}")
+        print(f"  Recall: {metrics.box.mr:.4f}")
+        
+        # 2. Production-Ready Counting Metrics
+        print("\n[Part 2] Production Counting Performance:")
+        evaluator = BagDetectionEvaluator(
+            weights_path=str(self.model.ckpt_path) if hasattr(self.model, 'ckpt_path') else 'models/weights/best.pt',
+            data_yaml=data_yaml,
+            config_path=production_config
+        )
+        
+        # Get test paths from data.yaml
+        with open(data_yaml, 'r') as f:
+            data_config = yaml.safe_load(f)
+        
+        test_images = Path(data_config['path']) / data_config.get('test', 'images/test')
+        test_labels = Path(data_config['path']) / 'labels/test'
+        
+        if test_images.exists() and test_labels.exists():
+            counting_metrics = evaluator.evaluate_counting_accuracy(str(test_images), str(test_labels))
+            print(f"\nCounting Summary:")
+            print(f"  Exact Accuracy: {counting_metrics['exact_accuracy']:.2f}%")
+            print(f"  MAE: {counting_metrics['mean_absolute_error']:.2f}")
+        else:
+            print("ℹ Skipping Part 2: Test set paths not found in data.yaml or disk.")
+        
+        print(f"{'='*60}\n")
         return metrics
     
     def export_model(self, format: str = 'onnx'):

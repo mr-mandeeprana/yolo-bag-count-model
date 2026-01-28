@@ -1,0 +1,56 @@
+# Video Inference Configuration
+# Configuration for real-time bag counting system
+
+# Camera Settings
+camera:
+  buffer_size: 0 # Zero buffer for minimum latency
+  fps_limit: 30 # Frame rate cap
+  reconnect_attempts: 5 # Max reconnection attempts
+  reconnect_delay: 2.0 # Base delay between reconnections (seconds)
+
+# YOLO Model Settings
+model:
+  weights: "models/weights/best.pt" # Path to model weights
+  confidence: 0.25 # Lowered for better detection in dim industrial areas
+  imgsz: 416 # Inference image size
+  half: true # Use FP16 precision (faster on GPU)
+
+# Region of Interest (ROI) - Conveyor belt area
+roi:
+  enabled: false # Disabled by default for easier field setup
+  polygon: # Covers full 478x850 frame by default
+    - [0, 850]
+    - [0, 0]
+    - [478, 0]
+    - [478, 850]
+
+# Counting Configuration
+counting:
+  mode: "line" # "line" or "zone"
+  min_area: 500 # Minimum pixel area to be counted (avoids noise)
+  direction: "both" # "in", "out", or "both"
+  trigger_anchor: "center" # "center", "bottom_center", or "top_center"
+  line:
+    start: [0, 425] # Line start point [x, y]
+    end: [478, 425] # Line end point [x, y]
+
+# Display Settings
+display:
+  window_name: "Fillpac Bag Counter"
+  show_fps: true
+  show_count: true
+  show_tracking_ids: true
+
+# Logging Configuration
+logging:
+  level: "INFO" # DEBUG, INFO, WARNING, ERROR
+  file: "logs/inference.log" # Log file path (null for console only)
+  max_bytes: 10485760 # 10MB per log file
+  backup_count: 5 # Keep 5 backup files
+
+# ByteTrack Settings
+tracking:
+  track_activation_threshold: 0.25
+  lost_track_buffer: 90
+  minimum_matching_threshold: 0.7
+  minimum_consecutive_frames: 2
