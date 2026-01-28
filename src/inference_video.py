@@ -4,19 +4,27 @@ Real-time bag detection and counting for Fillpac conveyor monitoring
 """
 
 import cv2
-import argparse
-import numpy as np
-from pathlib import Path
-from datetime import datetime
-from ultralytics import YOLO
-import supervision as sv
-import threading
-import time
-import os
+import argparse #Allows running the script with options (e.g., --source, --conf)
+import numpy as np 
+from pathlib import Path # For handling file paths
+from datetime import datetime# For timestamping
+from ultralytics import YOLO # YOLOv8 framework
+import supervision as sv # For visualization and tracking
+import threading # For threaded frame reading
+import time #for thread management
+import os #for os operations
 
-# Balanced FFMPEG options for stable streaming
-# TCP is more stable than UDP for unreliable networks
-os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|fflags;nobuffer|flags;low_delay"
+# Ultra-low latency FFMPEG options for RTSP streaming
+# Aggressive settings to minimize buffering and delay
+os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
+    "rtsp_transport;udp|"           # UDP is faster than TCP (less overhead)
+    "fflags;nobuffer|"               # Disable buffering
+    "flags;low_delay|"               # Low delay mode
+    "framedrop;1|"                   # Drop frames if needed to reduce latency
+    "max_delay;0|"                   # No delay tolerance
+    "reorder_queue_size;0|"          # Disable frame reordering
+    "buffer_size;0"                  # Minimal buffer size
+)
 
 
 from collections import deque
@@ -25,10 +33,15 @@ class ThreadedCamera:
     """Helper class for threaded frame reading with absolute latest frame delivery"""
     def __init__(self, source, target_size=None):
         self.cap = cv2.VideoCapture(source)
-        # Use buffer size of 1 for balance between latency and stability
+        
+        # Ultra-low latency settings
         if hasattr(cv2, 'CAP_PROP_BUFFERSIZE'):
-            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 0)  # Zero buffer for minimum latency
+        
+        # Limit FPS to prevent overwhelming the system
+        # Camera reported 120 FPS which is too high
+        self.cap.set(cv2.CAP_PROP_FPS, 30)  # Cap at 30 FPS for smooth operation
+        
         self.target_size = target_size
         # Deque with maxlen=1 ensures we always have exactly the latest frame
         self.frame_buffer = deque(maxlen=1)
@@ -54,13 +67,16 @@ class ThreadedCamera:
         return self
 
     def update(self):
+        target_interval = 1.0 / 30.0  # Target 30 FPS
         while self.started:
+            start_time = time.time()
+            
             if not self.cap.isOpened():
                 time.sleep(0.1)
                 continue
             
-            # Read one frame. This decodes the latest frame available in the buffer.
-            # dequeue(maxlen=1) ensures we only keep the latest one retrieved.
+            # Simple approach: just read frames as fast as possible
+            # The deque(maxlen=1) automatically keeps only the latest
             grabbed, frame = self.cap.read()
             
             if grabbed and frame is not None:
@@ -68,6 +84,12 @@ class ThreadedCamera:
                     frame = cv2.resize(frame, self.target_size)
                 self.frame_buffer.append(frame)
                 self.frame_id += 1
+                
+                # Frame rate limiting for smooth delivery
+                elapsed = time.time() - start_time
+                sleep_time = target_interval - elapsed
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
             else:
                 time.sleep(0.001)
 

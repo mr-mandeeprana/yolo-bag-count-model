@@ -3,7 +3,17 @@ Model Evaluation Script for YOLO Bag Detection
 Comprehensive metrics and performance analysis
 """
 
+import sys
 import os
+import io
+
+# Set UTF-8 encoding for Windows console - must be done before other imports
+if sys.platform == 'win32':
+    # Wrap stdout and stderr with UTF-8 encoding and error replacement
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
+
 import yaml
 import json
 from pathlib import Path
@@ -15,7 +25,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
+#ultralytics.YOLO: The YOLOv8 framework for loading and running the model
 class BagDetectionEvaluator:
     """Evaluate YOLO bag detection model performance"""
     
@@ -28,6 +38,7 @@ class BagDetectionEvaluator:
             data_yaml: Path to dataset configuration
         """
         self.model = YOLO(weights_path)
+        self.data_yaml = data_yaml  # Store the YAML path
         
         with open(data_yaml, 'r') as f:
             self.data_config = yaml.safe_load(f)
@@ -35,6 +46,11 @@ class BagDetectionEvaluator:
         self.results = {}
         
     def evaluate_detection(self, conf_threshold: float = 0.5, iou_threshold: float = 0.45):
+        # Evaluate the object detection model using the validation dataset.
+        # Applies confidence and IoU thresholds to filter predictions.
+        # Collects key metrics such as mAP, precision, and recall.
+        # Prints the results and returns them for further analysis.
+
         """
         Evaluate detection performance on validation set
         
@@ -45,16 +61,17 @@ class BagDetectionEvaluator:
         Returns:
             Dictionary of metrics
         """
+
         print(f"\n{'='*60}")
         print(f"Evaluating Detection Performance")
         print(f"{'='*60}\n")
         
         # Run validation
         metrics = self.model.val(
-            data=self.data_config,
+            data=self.data_yaml,  # Pass YAML file path, not dictionary
             conf=conf_threshold,
             iou=iou_threshold,
-            verbose=True
+            verbose=False  # Avoid emoji output issues on Windows
         )
         
         # Extract key metrics
@@ -66,6 +83,11 @@ class BagDetectionEvaluator:
             'conf_threshold': conf_threshold,
             'iou_threshold': iou_threshold
         }
+        #mAP@0.5 → detection accuracy at IoU 0.5(mAP@0.5:mean Average Precision),(IoU threshold: Intersection over Union)
+        #mAP@0.5:0.95 → stricter overall accuracy score
+        #Precision → how many detected objects are correct
+        #Recall → how many actual objects were found
+        #Thresholds are saved for reference
         
         self.results['detection'] = detection_metrics
         
@@ -78,6 +100,7 @@ class BagDetectionEvaluator:
         
         return detection_metrics
     
+    #Counting Accuracy(103-149)()
     def evaluate_counting_accuracy(
         self, 
         images_dir: str, 
@@ -125,6 +148,7 @@ class BagDetectionEvaluator:
             ground_truth_counts.append(gt_count)
             errors.append(pred_count - gt_count)
         
+
         # Calculate metrics
         errors = np.array(errors)
         abs_errors = np.abs(errors)
@@ -332,21 +356,21 @@ class BagDetectionEvaluator:
         # Add recommendations based on metrics
         if 'detection' in self.results:
             if self.results['detection']['mAP@0.5'] < 0.85:
-                report_lines.append("- ⚠ Detection accuracy below target (0.85). Consider collecting more training data or training for more epochs.")
+                report_lines.append("- [WARNING] Detection accuracy below target (0.85). Consider collecting more training data or training for more epochs.")
             else:
-                report_lines.append("- ✓ Detection accuracy meets target.")
+                report_lines.append("- [OK] Detection accuracy meets target.")
         
         if 'counting' in self.results:
             if self.results['counting']['exact_accuracy'] < 90:
-                report_lines.append("- ⚠ Counting accuracy below 90%. Review false positives/negatives and adjust confidence threshold.")
+                report_lines.append("- [WARNING] Counting accuracy below 90%. Review false positives/negatives and adjust confidence threshold.")
             else:
-                report_lines.append("- ✓ Counting accuracy is good.")
+                report_lines.append("- [OK] Counting accuracy is good.")
         
         if 'speed' in self.results:
             if self.results['speed']['fps'] < 30:
-                report_lines.append("- ⚠ FPS below 30. Consider using a smaller model (YOLOv8n) or exporting to TensorRT for optimization.")
+                report_lines.append("- [WARNING] FPS below 30. Consider using a smaller model (YOLOv8n) or exporting to TensorRT for optimization.")
             else:
-                report_lines.append("- ✓ Performance is suitable for real-time processing.")
+                report_lines.append("- [OK] Performance is suitable for real-time processing.")
         
         # Save report
         output_file = Path(output_path)

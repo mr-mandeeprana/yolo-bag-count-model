@@ -9,6 +9,11 @@ from pathlib import Path
 from ultralytics import YOLO
 import yaml
 
+# OpenCV for image I/O and display
+# Command-line argument parsing
+# Modern file path handling
+# YOLOv8 framework
+# YAML file parsing (not used in current version)
 
 class BagDetectorImage:
     """Bag detector for static images"""
