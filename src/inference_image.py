@@ -3,17 +3,12 @@ Image Inference Script for YOLO Bag Detection
 Detect and count bags in static images
 """
 
-import cv2
-import argparse
-from pathlib import Path
-from ultralytics import YOLO
-import yaml
+import cv2 # OpenCV for image I/O and display
+import argparse # Command-line argument parsing
+from pathlib import Path # Modern file path handling
+from ultralytics import YOLO # YOLOv8 framework
+import yaml # YAML file parsing (not used in current version)
 
-# OpenCV for image I/O and display
-# Command-line argument parsing
-# Modern file path handling
-# YOLOv8 framework
-# YAML file parsing (not used in current version)
 
 class BagDetectorImage:
     """Bag detector for static images"""
@@ -47,7 +42,7 @@ class BagDetectorImage:
         # Count bags (class 0)
         bag_count = sum(1 for det in results.boxes if int(det.cls) == 0)
         
-        # Get annotated image
+        # Get annotated image Draws bounding boxes and labels on the image
         annotated_img = results.plot()
         
         # Save if requested

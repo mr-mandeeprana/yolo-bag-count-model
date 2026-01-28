@@ -154,17 +154,18 @@ class BagDetectionEvaluator:
         abs_errors = np.abs(errors)
         
         counting_metrics = {
-            'total_images': len(predicted_counts),
-            'mean_error': float(np.mean(errors)),
-            'mean_absolute_error': float(np.mean(abs_errors)),
-            'std_error': float(np.std(errors)),
-            'max_error': float(np.max(abs_errors)),
-            'exact_accuracy': float(np.sum(errors == 0) / len(errors) * 100),
-            'within_1_accuracy': float(np.sum(abs_errors <= 1) / len(errors) * 100),
-            'within_2_accuracy': float(np.sum(abs_errors <= 2) / len(errors) * 100),
+            'total_images': len(predicted_counts), #Number of images evaluated
+            'mean_error': float(np.mean(errors)), #Average counting error
+            'mean_absolute_error': float(np.mean(abs_errors)),#Average absolute 
+            'std_error': float(np.std(errors)),#Variation in error
+            'max_error': float(np.max(abs_errors)),#Maximum counting error
+            'exact_accuracy': float(np.sum(errors == 0) / len(errors) * 100),#Exact accuracy
+            'within_1_accuracy': float(np.sum(abs_errors <= 1) / len(errors) * 100),#Within 1 accuracy
+            'within_2_accuracy': float(np.sum(abs_errors <= 2) / len(errors) * 100),#Within 2 accuracy
             'total_predicted': int(np.sum(predicted_counts)),
             'total_ground_truth': int(np.sum(ground_truth_counts)),
         }
+        
         
         self.results['counting'] = counting_metrics
         
@@ -180,6 +181,8 @@ class BagDetectionEvaluator:
         
         return counting_metrics
     
+     # Measures how fast the model runs inference by calculating time per image and FPS.
+     #speed metrics include mean inference time, standard deviation, minimum and maximum inference time.
     def evaluate_inference_speed(self, test_images_dir: str, num_samples: int = 100):
         """
         Evaluate inference speed
@@ -232,7 +235,11 @@ class BagDetectionEvaluator:
         
         return speed_metrics
     
+    #Confusion Matrix
     def plot_confusion_matrix(self, save_path: str = None):
+        # Correct detections (True Positives)
+        # Wrong detections (False Positives)
+        # Missed objects (False Negatives)
         """
         Plot confusion matrix (for detection: TP, FP, FN)
         
@@ -272,13 +279,13 @@ class BagDetectionEvaluator:
         
         plt.close()
     
+
     def plot_error_distribution(self, save_path: str = None):
-        """
-        Plot counting error distribution
-        
-        Args:
-            save_path: Path to save plot
-        """
+       # This function is intended to plot the distribution of counting errors.
+       # It checks whether counting evaluation has been done.
+       # In this simplified version, individual error values are not stored,
+       # so the actual error distribution plot cannot be generated.
+
         if 'counting' not in self.results:
             print("Run evaluate_counting_accuracy() first")
             return
