@@ -27,12 +27,15 @@ roi:
 # Counting Configuration
 counting:
   mode: "line" # "line" or "zone"
-  min_area: 500 # Minimum pixel area to be counted (avoids noise)
-  direction: "both" # "in", "out", or "both"
-  trigger_anchor: "center" # "center", "bottom_center", or "top_center"
-  line:
-    start: [0, 425] # Line start point [x, y]
-    end: [478, 425] # Line end point [x, y]
+  line_y: 450 # Vertical position of counting line (0.0 to 1.0 or pixels)
+  direction: both # in, out, both
+  trigger_anchor: center # center, bottom
+  min_area: 500 # Filter out objects smaller than this area
+
+calibration:
+  show_training_zone: true # Overlay the 478x850 "AI Sweet Spot"
+  show_guideline_boxes: true # Show ideal bag size boxes
+  overlay_alpha: 0.3 # Transparency of the guide
 
 # Display Settings
 display:

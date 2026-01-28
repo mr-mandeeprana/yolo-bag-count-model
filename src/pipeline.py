@@ -9,6 +9,7 @@ import subprocess
 import os
 from pathlib import Path
 import logging
+from typing import Optional
 
 # Setup basic logging
 logging.basicConfig(
@@ -57,10 +58,13 @@ class ProductionPipeline:
         logger.info("--- Starting Industrial Evaluation Phase ---")
         return self._run_script('evaluate.py', ['--weights', weights, '--data', data, '--config', config])
 
-    def run(self, source: str, weights: str, config: str):
+    def run(self, source: str, weights: str, config: str, conf: Optional[float] = None):
         """Step 4: Real-time Deployment"""
         logger.info("--- Starting Production Inference ---")
-        return self._run_script('inference_video.py', ['--source', source, '--weights', weights, '--config', config])
+        cmd_args = ['--source', source, '--weights', weights, '--config', config]
+        if conf is not None:
+            cmd_args.extend(['--conf', str(conf)])
+        return self._run_script('inference_video.py', cmd_args)
 
 def main():
     pipeline = ProductionPipeline()
@@ -106,6 +110,7 @@ Examples:
     run_parser.add_argument('--source', type=str, required=True, help='Video source (RTSP/File/ID)')
     run_parser.add_argument('--weights', type=str, default='models/weights/best.pt', help='Model weights')
     run_parser.add_argument('--config', type=str, default='config/video_config.yaml', help='Production config')
+    run_parser.add_argument('--conf', type=float, help='Confidence threshold')
 
     args = parser.parse_args()
 
@@ -116,7 +121,7 @@ Examples:
     elif args.phase == 'evaluate':
         pipeline.evaluate(args.weights, args.data, args.config)
     elif args.phase == 'run':
-        pipeline.run(args.source, args.weights, args.config)
+        pipeline.run(args.source, args.weights, args.config, args.conf)
     else:
         parser.print_help()
 

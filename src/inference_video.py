@@ -22,7 +22,7 @@ import yaml
 # Ultra-low latency FFMPEG options for RTSP streaming
 # Aggressive settings to minimize buffering and delay
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = (
-    "rtsp_transport;udp|"           # UDP is faster than TCP (less overhead)
+    "rtsp_transport;tcp|"           # TCP is more stable than UDP for industrial RTSP
     "fflags;nobuffer|"               # Disable buffering
     "flags;low_delay|"               # Low delay mode
     "framedrop;1|"                   # Drop frames if needed to reduce latency
@@ -220,11 +220,8 @@ class ThreadedCamera:
                     self.last_frame_time = time.time()
                     consecutive_failures = 0
                     
-                    # Frame rate limiting
-                    elapsed = time.time() - start_time
-                    sleep_time = target_interval - elapsed
-                    if sleep_time > 0:
-                        time.sleep(sleep_time)
+                    # No artificial frame rate limiting - use full sensor speed 
+                    # deque(maxlen=1) handles latency by dropping stale frames
                 else:
                     # Frame read failed
                     consecutive_failures += 1
@@ -359,9 +356,61 @@ class BagCounterVideo:
         if roi_config.get('enabled', True):
             self.roi_polygon = np.array(roi_config.get('polygon', [[0, 450], [0, 50], [478, 50], [478, 450]]))
             self.roi_zone = sv.PolygonZone(polygon=self.roi_polygon)
+            self.roi_annotator = sv.PolygonZoneAnnotator(zone=self.roi_zone, thickness=2)
         else:
             self.roi_polygon = None
             self.roi_zone = None
+            self.roi_annotator = None
+
+        # Shared state for async/sync inference
+        self.last_processed_frame = None
+        self.last_tracked_detections = sv.Detections.empty()
+        self.current_count = 0
+        self.inference_thread = None
+        self.inference_active = False
+        self.inference_lock = threading.Lock()
+        self.count_log = []
+        self.last_trigger_time = 0
+        self.last_printed_count = -1
+        self.last_printed_frame = 0
+
+    def _draw_calibration_overlays(self, frame: np.ndarray) -> np.ndarray:
+        """
+        Overlay industrial calibration guides to help site teams position cameras.
+        Shows the "Sweet Spot" (478x850 aspect ratio) used during training.
+        """
+        cal_cfg = self.config.get('calibration', {})
+        if not cal_cfg.get('show_training_zone', False) and not cal_cfg.get('show_guideline_boxes', False):
+            return frame
+
+        H, W = frame.shape[:2]
+        TRAIN_W, TRAIN_H = 478, 850
+        TRAIN_ASPECT = TRAIN_W / TRAIN_H
+        alpha = cal_cfg.get('overlay_alpha', 0.3)
+
+        # Calculate Training Zone coordinates
+        target_h_in_source = H
+        target_w_in_source = int(H * TRAIN_ASPECT)
+        start_x = (W - target_w_in_source) // 2
+        end_x = start_x + target_w_in_source
+
+        # 1. Training Zone Mask
+        if cal_cfg.get('show_training_zone', True):
+            mask = np.zeros_like(frame)
+            cv2.rectangle(mask, (start_x, 0), (end_x, H), (255, 255, 255), -1)
+            frame = cv2.addWeighted(frame, 1.0 - alpha, cv2.bitwise_and(frame, mask), alpha, 0)
+            cv2.rectangle(frame, (start_x, 0), (end_x, H), (0, 255, 255), 2) # Yellow border
+
+        # 2. Guideline Boxes (Typical bag scale)
+        if cal_cfg.get('show_guideline_boxes', True):
+            # Target bag size should be roughly 40-60% of vertical training box width
+            bw, bh = target_w_in_source * 0.5, target_h_in_source * 0.2
+            cx, cy = W // 2, H // 2
+            cv2.rectangle(frame, (int(cx-bw/2), int(cy-bh/2)), (int(cx+bw/2), int(cy+bh/2)), (0, 255, 0), 1)
+            cv2.putText(frame, "IDEAL BAG SIZE", (int(cx-bw/2), int(cy-bh/2)-10), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            
+        return frame
         
         # Shared state for async/sync inference
         self.last_processed_frame = None
@@ -470,7 +519,7 @@ class BagCounterVideo:
             with self.inference_lock:
                 self.last_processed_frame = frame.copy()
                 self.last_tracked_detections = tracked
-                self.filtered_detections = filtered_detections # Store for diagnostic display
+                self.filtered_detections = detections[~valid_mask] # Corrected: use localized detections
                 
                 # Check for triggers
                 prev_in = self.line_zone.in_count
@@ -512,8 +561,20 @@ class BagCounterVideo:
         
         if self.counting_mode == 'line':
             line_cfg = config_counting.get('line', {})
-            start_cfg = line_cfg.get('start', [0, int(height * 0.5)])
-            end_cfg = line_cfg.get('end', [width, int(height * 0.5)])
+            # Prioritize line_y if available, otherwise use line.start/end
+            line_y = config_counting.get('line_y')
+            
+            if line_y is not None:
+                # If line_y is < 1.0, treat as percentage
+                if line_y <= 1.0:
+                    y_coord = int(height * line_y)
+                else:
+                    y_coord = int(line_y)
+                start_cfg = [0, y_coord]
+                end_cfg = [width, y_coord]
+            else:
+                start_cfg = line_cfg.get('start', [0, int(height * 0.5)])
+                end_cfg = line_cfg.get('end', [width, int(height * 0.5)])
             
             start_point = sv.Point(int(start_cfg[0]), int(start_cfg[1]))
             end_point = sv.Point(int(end_cfg[0]), int(end_cfg[1]))
@@ -587,13 +648,14 @@ class BagCounterVideo:
         # 1. Open video source with ThreadedCamera
         is_live = str(video_source).isdigit() or str(video_source).startswith(('rtsp://', 'http://', 'https://'))
         
-        # Target dimensions for training consistency
-        target_width, target_height = 478, 850
+        # Target dimensions for YOLO processing (internal imgsz usually 416-640)
+        # We handle resizing per frame to preserve source aspect ratio for display.
+        yolo_width, yolo_height = 416, 416 
         
         if is_live:
             cap = ThreadedCamera(
                 int(video_source) if video_source.isdigit() else video_source,
-                target_size=(target_width, target_height)
+                target_size=None # Use native resolution for live display to prevent "not full" issue
             )
             cap.start()
             print(f"✓ Started zero-latency camera: {video_source}")
@@ -627,7 +689,8 @@ class BagCounterVideo:
         writer = None
         if output_path:
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            writer = cv2.VideoWriter(output_path, fourcc, fps, (target_width, target_height))
+            # Use current frame dimensions for the writer
+            writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
             if not writer.isOpened():
                 print(f"⚠ Warning: Could not initialize video writer for {output_path}")
                 writer = None
@@ -646,7 +709,7 @@ class BagCounterVideo:
         print(f"{'='*60}\n")
         
         try:
-            while cap.isOpened():
+            while cap.isOpened() if not is_live else cap.started:
                 # Handle both ThreadedCamera (3 returns) and VideoCapture (2 returns)
                 if is_live:
                     ret, frame, fid = cap.read()
@@ -659,6 +722,27 @@ class BagCounterVideo:
                         continue
                     else:
                         break
+                
+                # Termination Check
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            
+                # Console Monitoring - Print only when count increases or periodically (every 100 frames)
+                if current_count > self.last_printed_count:
+                    elapsed = time.time() - last_fps_time
+                    actual_fps = (frame_count - self.last_printed_frame) / elapsed if elapsed > 0 else 0
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] BAG DETECTED! | Total: {current_count} | FPS: {actual_fps:.1f}")
+                    sys.stdout.flush()
+                    self.last_printed_count = current_count
+                    self.last_printed_frame = frame_count
+                    last_fps_time = time.time()
+                elif frame_count % 300 == 0:
+                    elapsed = time.time() - last_fps_time
+                    actual_fps = 300 / elapsed if elapsed > 0 else 0
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] Monitoring... FPS: {actual_fps:.1f} | Bags: {current_count}")
+                    sys.stdout.flush()
+                    last_fps_time = time.time()
+                    self.last_printed_frame = frame_count
                 
                 frame_count += 1
                 
@@ -679,10 +763,20 @@ class BagCounterVideo:
                         tracked_detections = self.last_tracked_detections
                         current_count = self.current_count
                 else:
-                    # Processing for video files
-                    proc_frame = letterbox(frame, (target_width, target_height))
-                    results = self.model(proc_frame, conf=self.conf_threshold, classes=[0], verbose=False, half=self.half, imgsz=416)[0]
+                    # Processing for video files - resize for model performance
+                    # Preserve original frame for display
+                    inf_frame = letterbox(frame, (yolo_width, yolo_height))
+                    results = self.model(inf_frame, conf=self.conf_threshold, classes=[0], verbose=False, half=self.half, imgsz=416)[0]
                     detections = sv.Detections.from_ultralytics(results)
+                    
+                    # Map detections back to original frame size for display/counting
+                    # YOLO results are in inf_frame coordinates. 
+                    # But since we are using sv.LineZone on the original frame, 
+                    # we must scale detections up.
+                    scale_w = frame.shape[1] / yolo_width
+                    scale_h = frame.shape[0] / yolo_height
+                    detections.xyxy[:, 0::2] *= scale_w
+                    detections.xyxy[:, 1::2] *= scale_h
                     
                     if self.roi_zone:
                         mask = self.roi_zone.trigger(detections)
@@ -714,10 +808,12 @@ class BagCounterVideo:
                     if self.line_zone.in_count > prev_in or self.line_zone.out_count > prev_out:
                         self.last_trigger_time = time.time()
                         
-                    frame = proc_frame
+                    self.current_count = current_count
 
                 if display or writer:
                     scene = frame.copy()
+                    
+                    # current_count is already set above from self.current_count or local counting logic
                     
                     # Annotate detections
                     if tracked_detections.tracker_id is not None and len(tracked_detections.tracker_id) > 0:
@@ -742,20 +838,27 @@ class BagCounterVideo:
                             cv2.putText(scene, "small", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (100, 100, 100), 1)
                     
                     # Annotate counting zone with pulse effect
-                    if self.counting_mode == 'line':
+                    if self.counting_mode == 'line' and self.line_zone:
                         annotated_frame = self.zone_annotator.annotate(frame=scene, line_counter=self.line_zone)
                         
-                        # Dynamic line color pulse
+                        # Fallback explicit line drawing for clarity if annotator is too thin
                         line_color = (0, 0, 255) # Red default
                         if hasattr(self, 'last_trigger_time') and (time.time() - self.last_trigger_time < 0.3):
                             line_color = (0, 255, 0) # Green pulse
                             
+                        # Use sv.Point coordinates for compatibility
+                        s = self.line_zone.vector.start if hasattr(self.line_zone, 'vector') else self.line_zone.start
+                        e = self.line_zone.vector.end if hasattr(self.line_zone, 'vector') else self.line_zone.end
+                        
                         cv2.line(annotated_frame, 
-                                 (int(self.line_zone.vector.start.x), int(self.line_zone.vector.start.y)),
-                                 (int(self.line_zone.vector.end.x), int(self.line_zone.vector.end.y)),
+                                 (int(s.x), int(s.y)),
+                                 (int(e.x), int(e.y)),
                                  line_color, 4)
                     else:
                         annotated_frame = self.zone_annotator.annotate(scene=scene)
+                    
+                    # Apply Calibration Overlays
+                    annotated_frame = self._draw_calibration_overlays(annotated_frame)
                     
                     # Draw diagnostic info
                     info_text = [
