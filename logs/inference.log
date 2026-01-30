@@ -1,0 +1,121 @@
+2026-01-28 14:25:35,137 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 14:25:35,139 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 14:25:35,193 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 14:25:35,354 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 14:30:58,808 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 14:30:58,809 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 14:30:58,864 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 14:30:58,906 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 14:33:20,094 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 14:33:20,095 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 14:33:20,149 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 14:33:20,183 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 14:36:57,161 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 14:36:57,161 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 14:36:57,222 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 14:36:57,407 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 14:40:07,596 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 14:40:07,596 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 14:40:07,658 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 14:40:07,692 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 14:45:21,755 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 14:45:21,756 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 14:45:21,814 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 14:45:21,849 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:01:22,847 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:01:22,847 - BagCounter.Detector - WARNING - Config file not found at 0.3. Using defaults.
+2026-01-28 15:01:22,848 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:01:22,906 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:01:28,184 - BagCounter.Camera - INFO - Connected to camera: rtsp://192.168.137.215:8080/h264_pcm.sdp
+2026-01-28 15:01:28,196 - BagCounter.Camera - INFO - Camera initialized successfully: rtsp://192.168.137.215:8080/h264_pcm.sdp
+2026-01-28 15:01:28,197 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:04:04,094 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:04:04,094 - BagCounter.Detector - WARNING - Config file not found at 0.3. Using defaults.
+2026-01-28 15:04:04,095 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:04:04,151 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:04:10,848 - BagCounter.Camera - INFO - Connected to camera: rtsp://192.168.137.215:8080/h264_pcm.sdp
+2026-01-28 15:04:10,859 - BagCounter.Camera - INFO - Camera initialized successfully: rtsp://192.168.137.215:8080/h264_pcm.sdp
+2026-01-28 15:04:10,861 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:09:38,385 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:09:38,386 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:09:38,444 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:10:07,689 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:10:07,695 - BagCounter.Detector - INFO - Loaded configuration from config/video_config.yaml
+2026-01-28 15:10:07,695 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:10:07,753 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:10:12,170 - BagCounter.Camera - INFO - Connected to camera: rtsp://192.168.137.215:8080/h264_pcm.sdp
+2026-01-28 15:10:12,183 - BagCounter.Camera - INFO - Camera initialized successfully: rtsp://192.168.137.215:8080/h264_pcm.sdp
+2026-01-28 15:10:12,185 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:11:17,347 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:11:17,348 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:11:17,435 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:11:17,482 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:15:17,013 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:15:17,021 - BagCounter.Detector - INFO - Loaded configuration from config/video_config.yaml
+2026-01-28 15:15:17,021 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:15:17,077 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:15:21,609 - BagCounter.Camera - INFO - Connected to camera: rtsp://192.168.137.215:8080/h264_pcm.sdp
+2026-01-28 15:15:21,619 - BagCounter.Camera - INFO - Camera initialized successfully: rtsp://192.168.137.215:8080/h264_pcm.sdp
+2026-01-28 15:15:21,621 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:16:37,735 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:16:37,741 - BagCounter.Detector - INFO - Loaded configuration from config/video_config.yaml
+2026-01-28 15:16:37,742 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:16:37,804 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:16:43,301 - BagCounter.Camera - INFO - Connected to camera: rtsp://192.168.137.215:8080/h264_pcm.sdp
+2026-01-28 15:16:43,311 - BagCounter.Camera - INFO - Camera initialized successfully: rtsp://192.168.137.215:8080/h264_pcm.sdp
+2026-01-28 15:16:43,312 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:17:54,424 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:17:54,432 - BagCounter.Detector - INFO - Loaded configuration from config/video_config.yaml
+2026-01-28 15:17:54,432 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:17:54,497 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:17:58,036 - BagCounter.Camera - INFO - Connected to camera: rtsp://192.168.137.215:8080/h264_pcm.sdp
+2026-01-28 15:17:58,054 - BagCounter.Camera - INFO - Camera initialized successfully: rtsp://192.168.137.215:8080/h264_pcm.sdp
+2026-01-28 15:17:58,057 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:23:15,191 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:23:15,192 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:23:15,249 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:23:15,283 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:25:59,055 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:25:59,056 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:25:59,117 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:25:59,152 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:26:02,116 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:26:02,117 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:26:02,171 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:26:02,206 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:26:26,616 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:26:26,616 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:26:26,672 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:26:26,706 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:26:41,756 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:26:41,757 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:26:41,816 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:26:41,852 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:27:46,423 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:27:46,423 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:27:46,507 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:27:46,558 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:29:46,102 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:29:46,103 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:29:46,168 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:29:46,208 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:33:31,703 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:33:31,704 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:33:31,762 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:33:31,796 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:44:49,216 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:44:49,217 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:44:49,290 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:44:49,362 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:49:58,393 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:49:58,394 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:49:58,460 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:49:58,666 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-28 15:50:30,978 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-28 15:50:30,979 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-28 15:50:31,045 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-28 15:50:31,111 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-01-29 16:07:54,290 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-01-29 16:07:54,291 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-01-29 16:07:54,375 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-01-29 16:07:54,619 - BagCounter.Detector - INFO - Counting zone configured: line mode

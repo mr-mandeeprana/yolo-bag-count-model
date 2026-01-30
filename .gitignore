@@ -67,7 +67,7 @@ env/
 
 # Temporary files
 *.tmp
-*.log
+# *.log
 .DS_Store
 Thumbs.db
 
