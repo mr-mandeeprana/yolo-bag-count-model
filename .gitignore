@@ -37,10 +37,10 @@ env/
 .vscode/
 
 # Data (large files)
-data/raw/*
-data/processed/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
+# data/raw/*
+# data/processed/*
+# !data/raw/.gitkeep
+# !data/processed/.gitkeep
 
 # Model weights (large files)
 # models/
@@ -58,12 +58,12 @@ data/processed/*
 # outputs/logs/
 # outputs/logs/*
 # outputs/results/*
-outputs/counts/*
-outputs/evaluation/*
-!outputs/logs/.gitkeep
-!outputs/results/.gitkeep
-!outputs/counts/.gitkeep
-!outputs/evaluation/.gitkeep
+# outputs/counts/*
+# outputs/evaluation/*
+# !outputs/logs/.gitkeep
+# !outputs/results/.gitkeep
+# !outputs/counts/.gitkeep
+# !outputs/evaluation/.gitkeep
 
 # Temporary files
 *.tmp

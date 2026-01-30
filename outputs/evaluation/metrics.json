@@ -1,0 +1,33 @@
+{
+  "detection": {
+    "mAP@0.5": 0.6333181818181819,
+    "mAP@0.5:0.95": 0.37336765734265737,
+    "precision": 1.0,
+    "recall": 0.26666666666666666,
+    "conf_threshold": 0.5,
+    "iou_threshold": 0.45
+  },
+  "counting": {
+    "total_images": 9,
+    "mean_absolute_error": 2.0,
+    "exact_accuracy": 0.0,
+    "within_1_accuracy": 22.22222222222222,
+    "total_predicted": 1,
+    "total_ground_truth": 19,
+    "roi_enabled": true,
+    "min_area_filter": 2000
+  },
+  "speed": {
+    "mean_inference_time_ms": 178.47267786661783,
+    "std_inference_time_ms": 5.013059217132256,
+    "min_inference_time_ms": 167.45615005493164,
+    "max_inference_time_ms": 186.04493141174316,
+    "fps": 5.603098535605285,
+    "num_samples": 9
+  },
+  "confusion_matrix": {
+    "tp": 6,
+    "fp": 0,
+    "fn": 13
+  }
+}
