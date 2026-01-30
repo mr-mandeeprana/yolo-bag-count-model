@@ -43,21 +43,21 @@ data/processed/*
 !data/processed/.gitkeep
 
 # Model weights (large files)
-models/
-models/weights/*.pt
-models/weights/*.onnx
-models/weights/*.engine
-!models/weights/.gitkeep
-*.pt
-*.onnx
-*.engine
+# models/
+# models/weights/*.pt
+# models/weights/*.onnx
+# models/weights/*.engine
+# !models/weights/.gitkeep
+# *.pt
+# *.onnx
+# *.engine
 
 # Training outputs
-runs/
-logs/
-outputs/logs/
-outputs/logs/*
-outputs/results/*
+# runs/
+# logs/
+# outputs/logs/
+# outputs/logs/*
+# outputs/results/*
 outputs/counts/*
 outputs/evaluation/*
 !outputs/logs/.gitkeep
