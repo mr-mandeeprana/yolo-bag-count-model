@@ -97,11 +97,12 @@ def letterbox(frame, target_size=(478, 850)):
 class ThreadedCamera:
     """Helper class for threaded frame reading with automatic reconnection"""
     
-    def __init__(self, source, target_size=None, max_reconnect_attempts=5, reconnect_delay=2.0):
+    def __init__(self, source, target_size=None, max_reconnect_attempts=5, reconnect_delay=2.0, rotation=0):
         self.source = source
         self.target_size = target_size
         self.max_reconnect_attempts = max_reconnect_attempts
         self.reconnect_delay = reconnect_delay
+        self.rotation = rotation # 0, 90, 180, 270
         self.logger = logging.getLogger("BagCounter.Camera")
         
         # Initialize camera with error handling
@@ -119,21 +120,30 @@ class ThreadedCamera:
         if self.cap and self.cap.isOpened():
             ret, frame = self.cap.read()
             if ret and self._validate_frame(frame):
+                frame = self._apply_rotation(frame)
                 if self.target_size:
-                    frame = cv2.resize(frame, self.target_size)
+                    frame = letterbox(frame, self.target_size)
                 self.frame_buffer.append(frame)
                 self.frame_id = 1
-                self.logger.info(f"Camera initialized successfully: {self.source}")
+                self.logger.info(f"Camera initialized successfully: {self.source} (Rotation: {self.rotation})")
             else:
                 self.logger.warning("Failed to read initial frame")
     
     def _connect_camera(self):
         """Connect to camera with error handling"""
         try:
-            self.cap = cv2.VideoCapture(self.source)
+            # Clean the source string
+            if isinstance(self.source, str):
+                self.source = self.source.strip()
+            
+            # Use FFMPEG backend explicitly for RTSP to avoid fallback issues
+            if isinstance(self.source, str) and self.source.startswith("rtsp"):
+                self.cap = cv2.VideoCapture(self.source, cv2.CAP_FFMPEG)
+            else:
+                self.cap = cv2.VideoCapture(self.source)
             
             if not self.cap.isOpened():
-                raise RuntimeError(f"Failed to open camera: {self.source}")
+                raise RuntimeError(f"Failed to open camera: {self.source}. Check your network connection and URL.")
             
             # Ultra-low latency settings
             if hasattr(cv2, 'CAP_PROP_BUFFERSIZE'):
@@ -143,7 +153,11 @@ class ThreadedCamera:
             self.logger.info(f"Connected to camera: {self.source}")
             
         except Exception as e:
-            self.logger.error(f"Camera connection error: {e}")
+            error_msg = str(e)
+            if "CAP_IMAGES" in error_msg:
+                error_msg = ("OpenCV tried to read the URL as an image sequence. "
+                             "This usually happens when the RTSP stream is unreachable or the backend failed.")
+            self.logger.error(f"Camera connection error: {error_msg}")
             self.cap = None
             raise
     
@@ -169,6 +183,16 @@ class ThreadedCamera:
         self.logger.error("All reconnection attempts failed")
         return False
     
+    def _apply_rotation(self, frame):
+        """Rotate frame based on configuration"""
+        if self.rotation == 90:
+            return cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        elif self.rotation == 180:
+            return cv2.rotate(frame, cv2.ROTATE_180)
+        elif self.rotation == 270:
+            return cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        return frame
+
     @staticmethod
     def _validate_frame(frame) -> bool:
         """Validate that frame is not corrupted"""
@@ -211,9 +235,13 @@ class ThreadedCamera:
                 grabbed, frame = self.cap.read()
                 
                 if grabbed and self._validate_frame(frame):
+                    # Rotate frame
+                    frame = self._apply_rotation(frame)
+                    
                     # Resize if needed
                     if self.target_size:
-                        frame = letterbox(frame, self.target_size)
+                        # Use standard resize for industrial aspect ratio forcing if requested
+                        frame = cv2.resize(frame, self.target_size)
                     # Update buffer
                     self.frame_buffer.append(frame)
                     self.frame_id += 1
@@ -357,10 +385,16 @@ class BagCounterVideo:
             self.roi_polygon = np.array(roi_config.get('polygon', [[0, 450], [0, 50], [478, 50], [478, 450]]))
             self.roi_zone = sv.PolygonZone(polygon=self.roi_polygon)
             self.roi_annotator = sv.PolygonZoneAnnotator(zone=self.roi_zone, thickness=2)
+            
+            # ROI Bounding Box for auto-cropping
+            x_min, y_min = np.min(self.roi_polygon, axis=0)
+            x_max, y_max = np.max(self.roi_polygon, axis=0)
+            self.roi_bbox = (int(x_min), int(y_min), int(x_max), int(y_max))
         else:
             self.roi_polygon = None
             self.roi_zone = None
             self.roi_annotator = None
+            self.roi_bbox = None
 
         # Shared state for async/sync inference
         self.last_processed_frame = None
@@ -411,17 +445,6 @@ class BagCounterVideo:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
             
         return frame
-        
-        # Shared state for async/sync inference
-        self.last_processed_frame = None
-        self.last_tracked_detections = sv.Detections.empty()
-        self.current_count = 0
-        self.inference_thread = None
-        self.inference_active = False
-        self.inference_lock = threading.Lock()
-        
-        # Logging
-        self.count_log = []
 
     def _load_config(self, config_path: Optional[str]) -> dict:
         """
@@ -438,7 +461,8 @@ class BagCounterVideo:
             dict: The resolved configuration dictionary.
         """
         defaults = {
-            'camera': {'buffer_size': 0, 'fps_limit': 30, 'reconnect_attempts': 5, 'reconnect_delay': 2.0},
+            'camera': {'source': None, 'buffer_size': 0, 'fps_limit': 30, 'reconnect_attempts': 5, 'reconnect_delay': 2.0},
+            'video': {'maintain_original_speed': True, 'speed_multiplier': 1.0, 'frame_skip': 1},
             'model': {'weights': 'models/weights/best.pt', 'confidence': 0.25, 'imgsz': 416, 'half': True},
             'roi': {'enabled': False, 'polygon': [[0, 850], [0, 0], [478, 0], [478, 850]]},
             'counting': {
@@ -478,8 +502,44 @@ class BagCounterVideo:
         
         return defaults
         
+    def _apply_auto_crop(self, frame: np.ndarray) -> np.ndarray:
+        """Crop frame to the ROI bounding box if enabled"""
+        if not self.config.get('roi', {}).get('auto_crop', False) or self.roi_bbox is None:
+            return frame
+        
+        x1, y1, x2, y2 = self.roi_bbox
+        H, W = frame.shape[:2]
+        
+        # Clamp to frame boundaries
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(W, x2), min(H, y2)
+        
+        if x2 > x1 and y2 > y1:
+            return frame[y1:y2, x1:x2]
+        return frame
+
+    def _draw_styled_label(self, frame: np.ndarray, text: str, position: tuple, 
+                         bg_color: tuple = (255, 255, 255), text_color: tuple = (0, 0, 0),
+                         scale: float = 1.2, thickness: int = 3) -> np.ndarray:
+        """Draw text with a background box (Matches supervision LineZoneAnnotator style)"""
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        (text_width, text_height), baseline = cv2.getTextSize(text, font, scale, thickness)
+        
+        x, y = position
+        padding_x = 20
+        padding_y = 15
+        
+        # Draw background box (white)
+        cv2.rectangle(frame, 
+                      (x, y - text_height - padding_y), 
+                      (x + text_width + padding_x * 2, y + padding_y), 
+                      bg_color, -1)
+        
+        # Draw text (black)
+        cv2.putText(frame, text, (x + padding_x, y), font, scale, text_color, thickness, cv2.LINE_AA)
+        return frame
+
     def _inference_loop(self, cap):
-        """Background thread for continuous YOLO inference"""
         print("✓ Inference thread started (Asynchronous)")
         last_processed_id = -1
         while self.inference_active:
@@ -593,10 +653,10 @@ class BagCounterVideo:
             )
             self.zone_annotator = sv.LineZoneAnnotator(
                 thickness=4,
-                text_thickness=2,
-                text_scale=1.5,
-                display_in_count=True,
-                display_out_count=True
+                text_thickness=4,
+                text_scale=2.0, 
+                display_in_count=False, # Disable default labels to use custom styled ones
+                display_out_count=False
             )
         else:
             # Zone mode
@@ -653,12 +713,20 @@ class BagCounterVideo:
         yolo_width, yolo_height = 416, 416 
         
         if is_live:
+            rotation = self.config.get('camera', {}).get('rotation', 0)
+            target_res = self.config.get('display', {}).get('target_resolution')
+            if target_res:
+                target_res = tuple(target_res) # (width, height)
+            
             cap = ThreadedCamera(
                 int(video_source) if video_source.isdigit() else video_source,
-                target_size=None # Use native resolution for live display to prevent "not full" issue
+                target_size=target_res,
+                rotation=rotation
             )
             cap.start()
-            print(f"✓ Started zero-latency camera: {video_source}")
+            print(f"✓ Started zero-latency camera: {video_source} (Rotation: {rotation} deg)")
+            if target_res:
+                print(f"✓ Forced Resolution: {target_res[0]}x{target_res[1]}")
         else:
             cap = cv2.VideoCapture(video_source)
             print(f"✓ Opened video file: {video_source}")
@@ -703,13 +771,32 @@ class BagCounterVideo:
         tracked_detections = sv.Detections.empty()
         current_count = 0
         
+        # Frame rate control for video files (not live streams)
+        video_config = self.config.get('video', {})
+        maintain_speed = video_config.get('maintain_original_speed', True)
+        speed_multiplier = video_config.get('speed_multiplier', 1.0)
+        frame_skip = video_config.get('frame_skip', 1)  # Process every Nth frame
+        target_frame_time = (1.0 / fps / speed_multiplier) if (not is_live and maintain_speed) else 0
+        last_frame_time = time.time()
+        
+        # Frame skipping state for video files
+        last_detections = sv.Detections.empty()
+        last_tracked = sv.Detections.empty()
+        
         print(f"\n{'='*60}")
         print(f"Processing... {video_source}")
+        if not is_live and maintain_speed:
+            print(f"Playback speed: {speed_multiplier}x (Frame time: {target_frame_time*1000:.1f}ms)")
+            if frame_skip > 1:
+                print(f"Frame skip: Processing every {frame_skip} frame(s) for real-time playback")
         print(f"Press 'q' to quit")
         print(f"{'='*60}\n")
         
         try:
             while cap.isOpened() if not is_live else cap.started:
+                # Frame timing - start of iteration for accurate frame rate control
+                frame_start_time = time.time()
+                
                 # Handle both ThreadedCamera (3 returns) and VideoCapture (2 returns)
                 if is_live:
                     ret, frame, fid = cap.read()
@@ -722,10 +809,6 @@ class BagCounterVideo:
                         continue
                     else:
                         break
-                
-                # Termination Check
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
             
                 # Console Monitoring - Print only when count increases or periodically (every 100 frames)
                 if current_count > self.last_printed_count:
@@ -763,52 +846,62 @@ class BagCounterVideo:
                         tracked_detections = self.last_tracked_detections
                         current_count = self.current_count
                 else:
-                    # Processing for video files - resize for model performance
-                    # Preserve original frame for display
-                    inf_frame = letterbox(frame, (yolo_width, yolo_height))
-                    results = self.model(inf_frame, conf=self.conf_threshold, classes=[0], verbose=False, half=self.half, imgsz=416)[0]
-                    detections = sv.Detections.from_ultralytics(results)
+                    # Processing for video files with optional frame skipping
+                    # Process every Nth frame with YOLO, but display all frames
+                    should_process = (frame_count % frame_skip == 0)
                     
-                    # Map detections back to original frame size for display/counting
-                    # YOLO results are in inf_frame coordinates. 
-                    # But since we are using sv.LineZone on the original frame, 
-                    # we must scale detections up.
-                    scale_w = frame.shape[1] / yolo_width
-                    scale_h = frame.shape[0] / yolo_height
-                    detections.xyxy[:, 0::2] *= scale_w
-                    detections.xyxy[:, 1::2] *= scale_h
-                    
-                    if self.roi_zone:
-                        mask = self.roi_zone.trigger(detections)
-                        detections = detections[mask]
+                    if should_process:
+                        # Preserve original frame for display
+                        inf_frame = letterbox(frame, (yolo_width, yolo_height))
+                        results = self.model(inf_frame, conf=self.conf_threshold, classes=[0], verbose=False, half=self.half, imgsz=416)[0]
+                        detections = sv.Detections.from_ultralytics(results)
                         
-                    # Filter by area
-                    min_area = self.config['counting'].get('min_area', 500)
-                    valid_mask = detections.area > min_area
-                    self.valid_detections = detections[valid_mask]
-                    self.filtered_detections = detections[~valid_mask]
-                    
-                    tracked_detections = self.tracker.update_with_detections(self.valid_detections)
-                    
-                    # Check for triggers
-                    prev_in = self.line_zone.in_count
-                    prev_out = self.line_zone.out_count
-                    self.line_zone.trigger(tracked_detections)
-                    
-                    # Update current count based on direction mode
-                    direction = self.config['counting'].get('direction', 'both')
-                    if direction == 'in':
-                        current_count = self.line_zone.in_count
-                    elif direction == 'out':
-                        current_count = self.line_zone.out_count
-                    else: # both
-                        current_count = self.line_zone.in_count + self.line_zone.out_count
+                        # Map detections back to original frame size for display/counting
+                        scale_w = frame.shape[1] / yolo_width
+                        scale_h = frame.shape[0] / yolo_height
+                        detections.xyxy[:, 0::2] *= scale_w
+                        detections.xyxy[:, 1::2] *= scale_h
                         
-                    # Trigger "pulse" effect
-                    if self.line_zone.in_count > prev_in or self.line_zone.out_count > prev_out:
-                        self.last_trigger_time = time.time()
+                        if self.roi_zone:
+                            mask = self.roi_zone.trigger(detections)
+                            detections = detections[mask]
+                            
+                        # Filter by area
+                        min_area = self.config['counting'].get('min_area', 500)
+                        valid_mask = detections.area > min_area
+                        self.valid_detections = detections[valid_mask]
+                        self.filtered_detections = detections[~valid_mask]
                         
-                    self.current_count = current_count
+                        tracked_detections = self.tracker.update_with_detections(self.valid_detections)
+                        
+                        # Store for reuse on skipped frames
+                        last_detections = self.valid_detections
+                        last_tracked = tracked_detections
+                    else:
+                        # Reuse previous detections for skipped frames
+                        self.valid_detections = last_detections
+                        tracked_detections = last_tracked
+                    
+                    # Check for triggers (only on processed frames)
+                    if should_process:
+                        prev_in = self.line_zone.in_count
+                        prev_out = self.line_zone.out_count
+                        self.line_zone.trigger(tracked_detections)
+                        
+                        # Update current count based on direction mode
+                        direction = self.config['counting'].get('direction', 'both')
+                        if direction == 'in':
+                            current_count = self.line_zone.in_count
+                        elif direction == 'out':
+                            current_count = self.line_zone.out_count
+                        else: # both
+                            current_count = self.line_zone.in_count + self.line_zone.out_count
+                            
+                        # Trigger "pulse" effect
+                        if self.line_zone.in_count > prev_in or self.line_zone.out_count > prev_out:
+                            self.last_trigger_time = time.time()
+                            
+                        self.current_count = current_count
 
                 if display or writer:
                     scene = frame.copy()
@@ -850,33 +943,52 @@ class BagCounterVideo:
                         s = self.line_zone.vector.start if hasattr(self.line_zone, 'vector') else self.line_zone.start
                         e = self.line_zone.vector.end if hasattr(self.line_zone, 'vector') else self.line_zone.end
                         
+                        # Explicit Red line for production visibility
                         cv2.line(annotated_frame, 
                                  (int(s.x), int(s.y)),
                                  (int(e.x), int(e.y)),
-                                 line_color, 4)
+                                 line_color, 6)
                     else:
                         annotated_frame = self.zone_annotator.annotate(scene=scene)
                     
                     # Apply Calibration Overlays
                     annotated_frame = self._draw_calibration_overlays(annotated_frame)
                     
-                    # Draw diagnostic info
-                    info_text = [
-                        f"Bags Counted: {current_count}",
-                        f"Display FPS: {actual_fps:.1f}",
-                        f"Confidence: {self.conf_threshold:.2f}",
-                        f"Direction: {self.config['counting'].get('direction', 'both').upper()}"
-                    ]
-                    y = 30
-                    for text in info_text:
-                        cv2.putText(annotated_frame, text, (15, y), 
-                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                        y += 30
+                    # Auto-crop the output if enabled
+                    final_frame = self._apply_auto_crop(annotated_frame)
+                    
+                    # Draw Production-Ready UI ON THE FINAL FRAME
+                    # Only showing IN bags as requested
+                    in_count = self.line_zone.in_count if hasattr(self.line_zone, 'in_count') else current_count
+                    
+                    # Draw IN box
+                    self._draw_styled_label(final_frame, f"IN BAGS: {in_count}", (20, 60), scale=1.2, thickness=3)
+                    
+                    # Smaller status labels for FPS/Confidence
+                    if self.config['display'].get('show_fps', True):
+                        status_text = f"LIVE | FPS: {actual_fps:.1f} | CONF: {self.conf_threshold:.2f}"
+                        cv2.putText(final_frame, status_text, (20, 105), 
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1, cv2.LINE_AA)
+                    
+                    if writer and frame_count == 1:
+                        # Re-initialize writer if frame size changed due to cropping
+                        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                        orig_writer = writer
+                        h_final, w_final = final_frame.shape[:2]
+                        writer = cv2.VideoWriter(output_path, fourcc, fps, (w_final, h_final))
+                        orig_writer.release()
 
-                    if writer: writer.write(annotated_frame)
+                    if writer: writer.write(final_frame)
                     if display:
                         window_name = self.config.get('display', {}).get('window_name', 'Fillpac Bag Counter')
-                        cv2.imshow(window_name, annotated_frame)
+                        # Ensure window snaps to video size and reset it if already open to clear gray area
+                        if frame_count == 1:
+                            cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+                            h_disp, w_disp = final_frame.shape[:2]
+                            cv2.resizeWindow(window_name, w_disp, h_disp)
+                            
+                        cv2.imshow(window_name, final_frame)
+                        # Minimal delay for event processing only
                         key = cv2.waitKey(1) & 0xFF
                         if key == ord('q'): 
                             self.logger.info("User quit with 'q'")
@@ -884,6 +996,13 @@ class BagCounterVideo:
                 
                 if frame_count % fps == 0:
                     self.count_log.append({'timestamp': (datetime.now() - start_time).total_seconds(), 'frame': frame_count, 'count': current_count})
+                
+                # Frame rate limiting for video files to maintain original playback speed
+                if not is_live and target_frame_time > 0:
+                    elapsed_frame_time = time.time() - frame_start_time
+                    sleep_time = target_frame_time - elapsed_frame_time
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
 
         finally:
             self.inference_active = False
@@ -929,8 +1048,8 @@ def main():
     parser = argparse.ArgumentParser(description='Count bags in video using YOLO')
     parser.add_argument('--config', type=str, help='Path to YAML config file')
     parser.add_argument('--weights', type=str, help='Path to trained weights (overrides config)')
-    parser.add_argument('--source', type=str, required=True,
-                       help='Path to video file or camera index (0 for webcam)')
+    parser.add_argument('--source', type=str,
+                       help='Path to video file or camera index (0 for webcam). Overrides config source.')
     parser.add_argument('--conf', type=float, help='Confidence threshold (overrides config)')
     parser.add_argument('--mode', type=str, choices=['line', 'zone'],
                        help='Counting mode (overrides config)')
@@ -960,9 +1079,16 @@ def main():
         config_path=args.config
     )
     
+    # Determine source (CLI overrides config)
+    source = args.source or counter.config.get('camera', {}).get('source')
+    
+    if source is None:
+        logger.error("No video source provided! Specify --source or set 'camera.source' in config.")
+        sys.exit(1)
+        
     # Process video
     counter.process_video(
-        args.source,
+        source,
         output_path=args.output,
         display=not args.no_display,
         log_file=args.log,

@@ -111,11 +111,13 @@ python src/train.py --data config/data.yaml --epochs 50 --batch 16
 ### 4. Inference
 
 **For images:**
+
 ```bash
 python src/inference_image.py --weights models/weights/best.pt --source path/to/image.jpg
 ```
 
 **For videos (with counting):**
+
 ```bash
 python src/inference_video.py --weights models/weights/best.pt --source path/to/video.mp4
 ```
@@ -140,11 +142,13 @@ python src/inference_video.py --weights models/weights/best.pt --source path/to/
 ### Hardware Requirements
 
 **Training:**
+
 - GPU: NVIDIA RTX 3060 or better (8GB+ VRAM)
 - RAM: 16GB+
 - Storage: 50GB+ for datasets
 
 **Deployment:**
+
 - Edge: NVIDIA Jetson Nano/Xavier (for factory floor)
 - Cloud: Any GPU instance (AWS, Azure, GCP)
 - Camera: 1080p, 30 FPS minimum
@@ -226,31 +230,42 @@ Response:
 ### Common Issues
 
 **Low Detection Accuracy:**
+
 - Increase dataset size and diversity
 - Adjust confidence threshold (default 0.5)
 - Fine-tune for longer (100+ epochs)
 
 **Missed Counts (False Negatives):**
+
 - Check camera angle and resolution
 - Adjust virtual line/zone position
 - Lower confidence threshold cautiously
 
 **Double Counting:**
+
 - Verify ByteTrack tracker settings
 - Adjust IOU threshold for NMS
 - Review zone crossing logic
 
 **Performance Issues:**
+
 - Use smaller model (YOLOv8n)
 - Reduce input resolution (e.g., 416x416)
 - Export to TensorRT/ONNX
 
-## References
+## Documentation
 
-- [Ultralytics YOLOv8 Documentation](https://docs.ultralytics.com)
-- [Supervision Library](https://supervision.roboflow.com)
-- [BEUMER Fillpac Technical Specs](https://www.beumergroup.com)
-- [ByteTrack Paper](https://arxiv.org/abs/2110.06864)
+All project instructions, training guides, and deployment steps have been consolidated into a single comprehensive document:
+
+- [📖 **Complete Project Documentation**](docs/DOCUMENTATION.md)
+
+This guide covers:
+
+- environment setup and quick start
+- training and annotation workflow
+- deployment to edge devices (NVIDIA Jetson)
+- camera setup and RTSP streaming
+- troubleshooting and performance tuning
 
 ## License
 
@@ -258,4 +273,4 @@ This project is for internal use with BEUMER Fillpac machines. Ensure compliance
 
 ## Contact
 
-For questions or support, contact your ML engineering team or refer to the documentation in `docs/`.
+For questions or support, contact your ML engineering team.

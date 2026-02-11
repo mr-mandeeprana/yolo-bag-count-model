@@ -337,19 +337,7 @@ class BagDetectionEvaluator:
         plt.close()
     
 
-    def plot_error_distribution(self, save_path: str = None):
-       # This function is intended to plot the distribution of counting errors.
-       # It checks whether counting evaluation has been done.
-       # In this simplified version, individual error values are not stored,
-       # so the actual error distribution plot cannot be generated.
 
-        if 'counting' not in self.results:
-            print("Run evaluate_counting_accuracy() first")
-            return
-        
-        # This requires storing individual errors - simplified version
-        print("Error distribution plot requires individual error data")
-        print("Run evaluate_counting_accuracy() and store errors for detailed plot")
     
     def save_results(self, output_path: str):
         """

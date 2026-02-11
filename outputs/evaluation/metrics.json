@@ -9,20 +9,20 @@
   },
   "counting": {
     "total_images": 9,
-    "mean_absolute_error": 2.0,
+    "mean_absolute_error": 1.5555555555555556,
     "exact_accuracy": 0.0,
-    "within_1_accuracy": 22.22222222222222,
-    "total_predicted": 1,
+    "within_1_accuracy": 55.55555555555556,
+    "total_predicted": 5,
     "total_ground_truth": 19,
-    "roi_enabled": true,
-    "min_area_filter": 2000
+    "roi_enabled": false,
+    "min_area_filter": 500
   },
   "speed": {
-    "mean_inference_time_ms": 178.47267786661783,
-    "std_inference_time_ms": 5.013059217132256,
-    "min_inference_time_ms": 167.45615005493164,
-    "max_inference_time_ms": 186.04493141174316,
-    "fps": 5.603098535605285,
+    "mean_inference_time_ms": 195.04396120707193,
+    "std_inference_time_ms": 17.081154627158945,
+    "min_inference_time_ms": 176.3463020324707,
+    "max_inference_time_ms": 232.06543922424316,
+    "fps": 5.127049275513493,
     "num_samples": 9
   },
   "confusion_matrix": {

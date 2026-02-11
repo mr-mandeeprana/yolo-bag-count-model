@@ -1,0 +1,4 @@
+2026-02-11 13:37:39,032 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-02-11 13:37:39,040 - BagCounter.Detector - INFO - Loaded configuration from config/video_config.yaml
+2026-02-11 13:37:39,041 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-02-11 13:37:39,117 - BagCounter.Detector - INFO - YOLO model loaded successfully

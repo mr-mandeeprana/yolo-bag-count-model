@@ -8,6 +8,12 @@ camera:
   reconnect_attempts: 5 # Max reconnection attempts
   reconnect_delay: 2.0 # Base delay between reconnections (seconds)
 
+# Video Playback Settings (for video files, not live camera)
+video:
+  maintain_original_speed: true # Maintain original video playback speed
+  speed_multiplier: 1.0 # Playback speed multiplier (1.0 = normal, 2.0 = 2x speed, 0.5 = half speed)
+  frame_skip: 2 # Process every Nth frame (1 = all frames, 2 = every other frame, etc.)
+
 # YOLO Model Settings
 model:
   weights: "models/weights/best.pt" # Path to model weights

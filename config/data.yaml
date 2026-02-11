@@ -1,15 +1,15 @@
 # Dataset configuration for YOLO bag detection
 # Update paths after preparing your dataset
 
-# Paths (absolute path required for YOLO)
-path: C:/Users/mrman/OneDrive/Desktop/Beumer Data/Yolo_bag_count_model/data/processed
-train: images/train      # Train images (relative to 'path')
-val: images/val          # Validation images (relative to 'path')
-test: images/test        # Test images (optional)
+# Paths (relative to project root)
+path: data/processed
+train: images/train # Train images (relative to 'path')
+val: images/val # Validation images (relative to 'path')
+test: images/test # Test images (optional)
 
 # Classes
-nc: 1  # Number of classes
-names: ['bag']  # Class names
+nc: 1 # Number of classes
+names: ["bag"] # Class names
 
 # Dataset Info
 # Update these after collecting data

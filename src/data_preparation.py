@@ -11,7 +11,6 @@ from typing import List, Tuple
 import cv2
 import numpy as np
 from tqdm import tqdm
-import albumentations as A
 
 # os:file management, shutil:file operations, yaml:yaml file operations(reading & writing), 
 # pathlib:path operations, typing:type hints, cv2:image operations, 
@@ -213,33 +212,10 @@ class DatasetPreparer:
                 shutil.copy(str(label_file), str(dst_label))
         
         print(f"✓ Reproducible dataset split: Train={len(splits['train'])}, Val={len(splits['val'])}, Test={len(splits['test'])}")
-    #create augmentation pipeline (Lines 196-238)
 
-    def create_augmentation_pipeline(self) -> A.Compose:
-     # Augmentation pipeline using Albumentations to enhance dataset diversity.
-     # Includes horizontal flipping, brightness/contrast adjustment, Gaussian noise,
-     # blur, CLAHE for dust and lighting variations, and gamma correction.
-     # BboxParams ensure YOLO-format bounding boxes remain accurate after transforms.
-     # Gaussian noise improves robustness by altering pixel values, while BboxParams ensures bounding boxes remain accurate during all geometric image transformations.
-        transform = A.Compose([
-            A.HorizontalFlip(p=0.5),
-            A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
-            A.GaussNoise(var_limit=(10.0, 50.0), p=0.3),
-            A.Blur(blur_limit=3, p=0.2),
-            A.CLAHE(clip_limit=2.0, p=0.3),  # For dust/lighting variations
-            A.RandomGamma(gamma_limit=(80, 120), p=0.3),
-        ], bbox_params=A.BboxParams(format='yolo', label_fields=['class_labels']))
-        
-        return transform
      
-      #line(215-278)
-      # This function increases the dataset size by creating augmented copies of images.
-      # For each image, it reads the YOLO label file, applies image augmentations,
-      # and updates bounding boxes correctly.
-      # Augmented images and their corresponding labels are saved with new filenames.
 
-        print(f"✓ Augmented {split} set with factor {augment_factor}")
-    
+
     def generate_data_yaml(self, nc: int = 1, names: list = ['bag']):
         """Generate a basic data.yaml file for YOLO training"""
         data = {
@@ -265,7 +241,6 @@ def main():
     parser.add_argument('--output', type=str, default='data/processed', help='Output directory')
     parser.add_argument('--extract-video', type=str, help='Extract frames from video')
     parser.add_argument('--frame-interval', type=int, default=30, help='Frame extraction interval')
-    parser.add_argument('--augment', action='store_true', help='Apply augmentation')
     
     args = parser.parse_args()
     
@@ -291,8 +266,6 @@ def main():
         preparer.split_dataset(str(raw_images), str(temp_labels))
         preparer.generate_data_yaml()
         
-        if args.augment:
-            preparer.augment_dataset('train', augment_factor=2)
     
     print("\n✓ Data preparation complete!")
 
