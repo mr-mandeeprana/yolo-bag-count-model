@@ -347,3 +347,62 @@
 2026-02-11 15:06:57,386 - BagCounter.Camera - INFO - Connected to camera: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif
 2026-02-11 15:06:57,429 - BagCounter.Camera - INFO - Camera initialized successfully: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif (Rotation: 90)
 2026-02-11 15:06:57,431 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-02-13 14:38:18,632 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-02-13 14:38:18,633 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-02-13 14:38:18,729 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-02-13 14:38:18,945 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-02-13 15:00:41,172 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-02-13 15:00:41,173 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-02-13 15:00:41,256 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-02-13 15:00:41,275 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-02-16 09:44:59,493 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-02-16 09:44:59,504 - BagCounter.Detector - INFO - Loaded configuration from config/video_config.yaml
+2026-02-16 09:44:59,506 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-02-16 09:44:59,599 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-02-16 09:44:59,603 - BagCounter - ERROR - No video source provided! Specify --source or set 'camera.source' in config.
+2026-02-16 09:53:48,160 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-02-16 09:53:48,168 - BagCounter.Detector - INFO - Loaded configuration from config/video_config.yaml
+2026-02-16 09:53:48,168 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-02-16 09:53:48,243 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-02-16 09:53:48,247 - BagCounter - ERROR - No video source provided! Specify --source or set 'camera.source' in config.
+2026-02-16 09:55:29,566 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-02-16 09:55:29,576 - BagCounter.Detector - INFO - Loaded configuration from config/video_config.yaml
+2026-02-16 09:55:29,576 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-02-16 09:55:29,668 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-02-16 09:55:31,604 - BagCounter.Camera - INFO - Connected to camera: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif
+2026-02-16 09:55:31,644 - BagCounter.Camera - INFO - Camera initialized successfully: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif (Rotation: 90)
+2026-02-16 09:55:31,652 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-02-16 09:56:53,476 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-02-16 09:56:53,484 - BagCounter.Detector - INFO - Loaded configuration from config/video_config.yaml
+2026-02-16 09:56:53,485 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-02-16 09:56:53,576 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-02-16 09:56:54,598 - BagCounter.Camera - INFO - Connected to camera: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif
+2026-02-16 09:56:54,630 - BagCounter.Camera - INFO - Camera initialized successfully: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif (Rotation: 90)
+2026-02-16 09:56:54,643 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-02-16 09:59:33,621 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-02-16 09:59:33,631 - BagCounter.Detector - INFO - Loaded configuration from config/video_config.yaml
+2026-02-16 09:59:33,631 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-02-16 09:59:33,710 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-02-16 09:59:34,725 - BagCounter.Camera - INFO - Connected to camera: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif
+2026-02-16 09:59:34,784 - BagCounter.Camera - INFO - Camera initialized successfully: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif (Rotation: 90)
+2026-02-16 09:59:34,790 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-02-16 10:03:57,105 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-02-16 10:03:57,114 - BagCounter.Detector - INFO - Loaded configuration from config/video_config.yaml
+2026-02-16 10:03:57,115 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-02-16 10:03:57,186 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-02-16 10:03:58,216 - BagCounter.Camera - INFO - Connected to camera: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif
+2026-02-16 10:03:58,240 - BagCounter.Camera - INFO - Camera initialized successfully: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif (Rotation: 90)
+2026-02-16 10:03:58,241 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-02-16 10:11:06,551 - BagCounter.Camera - ERROR - Too many consecutive failures (10), attempting reconnection
+2026-02-16 10:11:06,555 - BagCounter.Camera - WARNING - Reconnection attempt 1/5
+2026-02-16 10:38:08,076 - BagCounter.Camera - ERROR - Camera connection error: Failed to open camera: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif. Check your network connection and URL.
+2026-02-16 10:38:08,077 - BagCounter.Camera - ERROR - Reconnection attempt 1 failed: Failed to open camera: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif. Check your network connection and URL.
+2026-02-16 10:38:08,080 - BagCounter.Camera - WARNING - Reconnection attempt 2/5
+2026-02-16 10:39:13,860 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-02-16 10:39:13,861 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-02-16 10:39:13,928 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-02-16 10:39:14,049 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-02-16 11:15:39,300 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-02-16 11:15:39,307 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-02-16 11:15:39,372 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-02-16 11:15:39,573 - BagCounter.Detector - INFO - Counting zone configured: line mode

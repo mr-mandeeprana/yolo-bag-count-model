@@ -7,6 +7,8 @@ camera:
   fps_limit: 30 # Frame rate cap
   reconnect_attempts: 5 # Max reconnection attempts
   reconnect_delay: 2.0 # Base delay between reconnections (seconds)
+  source: "rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif" # High-quality main stream
+  rotation: 90 # Rotated 90 degrees to match production belt mounting
 
 # Video Playback Settings (for video files, not live camera)
 video:
@@ -17,7 +19,7 @@ video:
 # YOLO Model Settings
 model:
   weights: "models/weights/best.pt" # Path to model weights
-  confidence: 0.25 # Lowered for better detection in dim industrial areas
+  confidence: 0.45 # Increased to reduce false positives on empty belt
   imgsz: 416 # Inference image size
   half: true # Use FP16 precision (faster on GPU)
 
@@ -36,7 +38,7 @@ counting:
   line_y: 450 # Vertical position of counting line (0.0 to 1.0 or pixels)
   direction: both # in, out, both
   trigger_anchor: center # center, bottom
-  min_area: 500 # Filter out objects smaller than this area
+  min_area: 1000 # Filter out small objects and false positives
 
 calibration:
   show_training_zone: true # Overlay the 478x850 "AI Sweet Spot"
