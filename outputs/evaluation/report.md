@@ -16,7 +16,7 @@
 - **Within ±1**: 55.56%
 - **Mean Absolute Error**: 1.56
 - **ROI Filter**: Disabled
-- **Min Area Filter**: 500 pixels
+- **Min Area Filter**: 1000 pixels
 
 ### Detection Quality (Confusion Matrix)
 
@@ -27,8 +27,8 @@ Actual counts from IoU matching on test set:
 
 ### Performance
 
-- **Average FPS**: 5.13
-- **Mean Inference Time**: 195.04 ms
+- **Average FPS**: 4.98
+- **Mean Inference Time**: 200.86 ms
 
 ## Recommendations
 

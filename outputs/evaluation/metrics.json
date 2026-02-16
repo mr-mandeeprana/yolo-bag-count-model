@@ -15,14 +15,14 @@
     "total_predicted": 5,
     "total_ground_truth": 19,
     "roi_enabled": false,
-    "min_area_filter": 500
+    "min_area_filter": 1000
   },
   "speed": {
-    "mean_inference_time_ms": 195.04396120707193,
-    "std_inference_time_ms": 17.081154627158945,
-    "min_inference_time_ms": 176.3463020324707,
-    "max_inference_time_ms": 232.06543922424316,
-    "fps": 5.127049275513493,
+    "mean_inference_time_ms": 200.86312294006348,
+    "std_inference_time_ms": 5.186935179671309,
+    "min_inference_time_ms": 192.90733337402344,
+    "max_inference_time_ms": 209.55467224121094,
+    "fps": 4.978514648995051,
     "num_samples": 9
   },
   "confusion_matrix": {
