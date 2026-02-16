@@ -31,14 +31,14 @@ The system uses **YOLOv8** (You Only Look Once v8) from Ultralytics:
 
 ### Processing Pipeline
 
-```
+```text
 Camera Feed → Frame Capture → YOLO Detection → Object Tracking → 
 Zone/Line Counting → Count Logging → Alerts (if needed)
 ```
 
 ## Project Structure
 
-```
+```text
 Yolo_bag_count_model/
 ├── README.md                    # This file
 ├── requirements.txt             # Python dependencies
@@ -127,17 +127,19 @@ python src/inference_video.py --weights models/weights/best.pt --source path/to/
 ### Model Variants
 
 | Variant | Parameters | Speed (FPS) | Accuracy (mAP) | Use Case |
-|---------|-----------|-------------|----------------|----------|
+| --- | --- | --- | --- | --- |
 | YOLOv8n | 3.2M | 80+ | ~0.85 | Edge devices, real-time |
 | YOLOv8s | 11.2M | 60+ | ~0.88 | Balanced performance |
 | YOLOv8m | 25.9M | 40+ | ~0.91 | Higher accuracy needed |
 
 ### Performance Targets
 
-- **Detection Accuracy**: mAP@0.5 > 0.85
-- **Counting Accuracy**: >98% for controlled environments
-- **Processing Speed**: 30+ FPS for real-time monitoring
-- **Latency**: <50ms per frame on GPU
+| Metric | Target | Actual (Current) |
+|--------|--------|------------------|
+| **Detection Accuracy (mAP@0.5)** | > 0.85 | 0.6333 |
+| **Counting Accuracy (±1)** | > 98% | 55.56% |
+| **Processing Speed** | 30+ FPS | 4.98 FPS |
+| **Latency** | < 50ms | 200.86ms |
 
 ### Hardware Requirements
 
