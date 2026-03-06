@@ -406,3 +406,7 @@
 2026-02-16 11:15:39,307 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
 2026-02-16 11:15:39,372 - BagCounter.Detector - INFO - YOLO model loaded successfully
 2026-02-16 11:15:39,573 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-02-17 09:04:01,943 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-02-17 09:04:01,944 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-02-17 09:04:02,027 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-02-17 09:04:02,270 - BagCounter.Detector - INFO - Counting zone configured: line mode
