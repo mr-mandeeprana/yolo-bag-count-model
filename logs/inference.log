@@ -410,3 +410,18 @@
 2026-02-17 09:04:01,944 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
 2026-02-17 09:04:02,027 - BagCounter.Detector - INFO - YOLO model loaded successfully
 2026-02-17 09:04:02,270 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-03-06 09:15:28,687 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-03-06 09:15:28,699 - BagCounter.Detector - INFO - Loaded configuration from config\video_config.yaml
+2026-03-06 09:15:28,700 - BagCounter.Detector - INFO - Loading YOLO model from: models/weights/best.pt
+2026-03-06 09:15:28,800 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-03-06 09:15:29,134 - BagCounter.Detector - INFO - Counting zone configured: line mode
+2026-03-06 09:31:35,287 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-03-06 09:31:35,294 - BagCounter.Detector - INFO - Loaded configuration from C:\Users\mrman\OneDrive\Desktop\Beumer work\Beumer Data\Yolo_bag_count_model\config\video_config.yaml
+2026-03-06 09:31:35,295 - BagCounter.Detector - INFO - Loading YOLO model from: C:\Users\mrman\OneDrive\Desktop\Beumer work\Beumer Data\Yolo_bag_count_model\models\weights\best.pt
+2026-03-06 09:31:35,353 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-03-06 09:32:05,429 - BagCounter.Camera - ERROR - Camera connection error: Failed to open camera: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif. Check your network connection and URL.
+2026-03-11 08:40:17,000 - BagCounter - INFO - Initializing Fillpac Bag Counter...
+2026-03-11 08:40:17,008 - BagCounter.Detector - INFO - Loaded configuration from C:\Users\mrman\OneDrive\Desktop\Beumer work\Beumer Data\Yolo_bag_count_model\config\video_config.yaml
+2026-03-11 08:40:17,009 - BagCounter.Detector - INFO - Loading YOLO model from: C:\Users\mrman\OneDrive\Desktop\Beumer work\Beumer Data\Yolo_bag_count_model\models\weights\best.pt
+2026-03-11 08:40:17,069 - BagCounter.Detector - INFO - YOLO model loaded successfully
+2026-03-11 08:40:47,208 - BagCounter.Camera - ERROR - Camera connection error: Failed to open camera: rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif. Check your network connection and URL.

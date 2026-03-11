@@ -8,7 +8,7 @@ setup(
         "ultralytics>=8.0.0",
         "torch>=2.0.0",
         "torchvision>=0.15.0",
-        "opencv-python>=4.8.0",
+        "opencv-python-headless>=4.8.0",
         "supervision>=0.16.0",
         "numpy>=1.24.0",
         "pandas>=2.0.0",
