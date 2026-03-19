@@ -40,40 +40,37 @@ Zone/Line Counting → Count Logging → Alerts (if needed)
 
 ```text
 Yolo_bag_count_model/
-├── README.md                    # This file
-├── requirements.txt             # Python dependencies
+├── README.md                          # This file
+├── requirements.txt                   # Python dependencies
+├── start_live_camera.ps1              # Main PowerShell launcher for live stream & ELK
+├── docker-compose.observability.yml    # ELK Stack configuration
 ├── config/
-│   ├── data.yaml               # Dataset configuration
-│   └── model_config.yaml       # Model hyperparameters
+│   ├── data.yaml                     # Dataset configuration
+│   ├── model_config.yaml             # Model hyperparameters
+│   └── video_config.yaml             # Video & ELK configuration
+├── observability/                     # Logstash pipelines & Kibana assets
 ├── data/
-│   ├── raw/                    # Raw images/videos from Fillpac
-│   ├── processed/              # Annotated dataset
-│   │   ├── images/
-│   │   │   ├── train/
-│   │   │   ├── val/
-│   │   │   └── test/
-│   │   └── labels/
-│   │       ├── train/
-│   │       ├── val/
-│   │       └── test/
-│   └── augmented/              # Augmented training data
+│   ├── raw/                           # Raw images/videos from Fillpac
+│   ├── processed/                     # Annotated dataset
+│   └── augmented/                     # Augmented training data
 ├── src/
-│   ├── data_preparation.py     # Dataset utilities
-│   ├── train.py                # Model training script
-│   ├── inference_image.py      # Image inference
-│   ├── inference_video.py      # Video inference with counting
-│   ├── evaluate.py             # Model evaluation
-│   └── utils.py                # Helper functions
+│   ├── data_preparation.py            # Dataset utilities
+│   ├── train.py                       # Model training script
+│   ├── inference_image.py             # Image inference
+│   ├── inference_video.py             # Video inference with counting & ELK
+│   ├── elasticsearch_client.py        # ELK integration client
+│   ├── evaluate.py                    # Model evaluation
+│   └── utils.py                       # Helper functions
 ├── models/
-│   └── weights/                # Trained model weights
+│   └── weights/                       # Trained model weights (best.pt, OpenVINO, etc.)
 ├── outputs/
-│   ├── logs/                   # Training logs
-│   ├── results/                # Detection results
-│   └── counts/                 # Bag count records
+│   ├── logs/                          # Training & inference logs
+│   ├── results/                       # Detection results
+│   └── counts/                        # Bag count records
 └── docs/
-    ├── architecture.md         # Detailed architecture
-    ├── deployment.md           # Deployment guide
-    └── training_guide.md       # Training instructions
+    ├── architecture.md                # Detailed architecture
+    ├── deployment.md                  # Deployment guide
+    └── training_guide.md              # Training instructions
 ```
 
 ## Quick Start
