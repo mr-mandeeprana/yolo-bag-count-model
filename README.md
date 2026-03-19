@@ -116,8 +116,13 @@ python src/train.py --data config/data.yaml --epochs 50 --batch 16
 python src/inference_image.py --weights models/weights/best.pt --source path/to/image.jpg
 ```
 
-**For videos (with counting):**
+**For live streams (Preferred):**
+Use the PowerShell launcher for automated setup and ELK integration:
+```powershell
+.\start_live_camera.ps1 -SkipSetup
+```
 
+**For manual video inference (with counting):**
 ```bash
 python src/inference_video.py --weights models/weights/best.pt --source path/to/video.mp4
 ```
@@ -198,6 +203,31 @@ For centralized monitoring across multiple Fillpac machines:
 - Run inference on GPU instances
 - Store counts in database (PostgreSQL, InfluxDB)
 - Visualize with dashboards (Grafana, custom web app)
+
+### Kibana + Logstash Observability
+ 
+ This repository includes an ELK setup for live data views and dashboards. 
+ 
+ #### 1. Automated Startup
+ The easiest way to run with ELK is using the PowerShell script:
+ ```powershell
+ .\start_live_camera.ps1 -WithELK
+ ```
+ *Note: The script automatically detects if ELK is enabled in `config/video_config.yaml` and will start the containers if Docker is running.*
+ 
+ #### 2. Manual Configuration
+ 1. Set `config/video_config.yaml` under `elasticsearch` to:
+   - `enabled: true`
+   - `ingestion_mode: "logstash"`
+ 2. Ensure Docker Desktop is running.
+ 3. Start the stack manually if needed: `docker compose -f docker-compose.observability.yml up -d`
+ 
+ #### 3. Data Schema & Dashboards
+ The system pushes two key fields for every detection:
+ - `bag_count`: Always `1` (Allows for summing detections over time windows like "last 15 mins").
+ - `total_count`: The cumulative count since the script started.
+ 
+ Open Kibana at `http://localhost:5601` to view your data. Use the **Sum** metric on `bag_count` for throughput visualizations.
 
 ## Integration with Fillpac Systems
 
