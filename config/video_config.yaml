@@ -8,42 +8,54 @@ camera:
   reconnect_attempts: 5 # Max reconnection attempts
   reconnect_delay: 2.0 # Base delay between reconnections (seconds)
   source: "rtsp://admin:Admin%40123@192.168.1.5:554/cam/realmonitor?channel=1&subtype=0&proto=Onvif" # High-quality main stream
-  rotation: 90 # Rotated 90 degrees to match production belt mounting
+  rotation: 0
 
 # Video Playback Settings (for video files, not live camera)
 video:
-  maintain_original_speed: true # Maintain original video playback speed
-  speed_multiplier: 1.0 # Playback speed multiplier (1.0 = normal, 2.0 = 2x speed, 0.5 = half speed)
-  frame_skip: 2 # Process every Nth frame (1 = all frames, 2 = every other frame, etc.)
+  maintain_original_speed: true
+  speed_multiplier: 1.0
+  frame_skip: 1
 
-# YOLO Model Settings
+# AI Model Configuration
 model:
-  weights: "models/weights/best.pt" # Path to model weights
-  confidence: 0.45 # Increased to reduce false positives on empty belt
-  imgsz: 416 # Inference image size
-  half: true # Use FP16 precision (faster on GPU)
+  weights: "models/weights/best_openvino_model"
+  target_class_name: "bag"  # Enforce bag-only class filtering by label name
+  confidence: 0.45      # Slightly lower to keep fast/blurred bags from being missed
+  iou: 0.45             # Tighter NMS to separate bags that are close together
+  imgsz: 320            # Keep small for speed
+  frame_skip: 0         # Still processing every frame for high speed
+  device: "cpu"         
+  half: true            # Enabled for OpenVINO speedup on CPU
 
-# Region of Interest (ROI) - Conveyor belt area
+# Region of Interest (ROI) - Conveyor belt area only
+# Excludes ceiling glare at top and floor edge at bottom
 roi:
-  enabled: false # Disabled by default for easier field setup
-  polygon: # Covers full 478x850 frame by default
-    - [0, 850]
-    - [0, 0]
-    - [478, 0]
-    - [478, 850]
+  enabled: true
+  reference_resolution: [1906, 956] # Width, height used when polygon was calibrated
+  polygon:
+    - [600, 800]    # Left-bottom (Narrower to exclude ceiling lights)
+    - [600, 20]     # Left-top
+    - [1300, 20]    # Right-top
+    - [1300, 800]   # Right-bottom
 
 # Counting Configuration
 counting:
-  mode: "line" # "line" or "zone"
-  line_y: 450 # Vertical position of counting line (0.0 to 1.0 or pixels)
-  direction: both # in, out, both
-  trigger_anchor: center # center, bottom
-  min_area: 1000 # Filter out small objects and false positives
+  mode: "line"
+  line_x: 0.5 # Vertical line exactly in the center
+  direction: "both" # Count crossings in both directions to avoid missed bags
+  trigger_anchor: "center" # Center is most stable for varying box sizes
+  min_area: 5000 # Minimum area for valid bag detection
+  max_area: null # Removed max_area - trust confidence and aspect ratio filters
+  min_aspect_ratio: 0.2 # Allow wider aspect ratios
+  max_aspect_ratio: 5.0 # Allow more stretched detections
+  positional_fingerprint_cooldown_s: 0.30 # Per-bag dedupe, allows close consecutive bags
+  tracker_after_positional_guard_s: 0.25 # Short guard to avoid immediate double count
+  min_count_gap_s: 0.00 # Keep zero for high-throughput conveyor
 
 calibration:
-  show_training_zone: true # Overlay the 478x850 "AI Sweet Spot"
-  show_guideline_boxes: true # Show ideal bag size boxes
-  overlay_alpha: 0.3 # Transparency of the guide
+  show_training_zone: true
+  show_guideline_boxes: true
+  overlay_alpha: 0.3
 
 # Display Settings
 display:
@@ -51,17 +63,49 @@ display:
   show_fps: true
   show_count: true
   show_tracking_ids: true
+  allow_live_output: false # Do not save MP4 when source is live camera
+  performance_mode: false # Disabled to allow diagnostic overlays
+  diagnostic_mode: true # Enabled to show low-conf and small-area detections
+  live_performance:
+    enabled: true
+    performance_mode: true # Avoid expensive copies/overlays on live stream
+    show_tracking_ids: false # Label rendering is costly at high FPS
+    diagnostic_mode: false # Keep confidence threshold strict in live mode
+    show_calibration: false # Calibration overlay is for setup, not production run
+
+# Live stream runtime controls
+live:
+  infer_every_n_frames: 1 # Increase to 2 only if CPU is still saturated
 
 # Logging Configuration
 logging:
-  level: "INFO" # DEBUG, INFO, WARNING, ERROR
-  file: "logs/inference.log" # Log file path (null for console only)
-  max_bytes: 10485760 # 10MB per log file
-  backup_count: 5 # Keep 5 backup files
+  level: "DEBUG" # Increased to watch tracking in logs/inference.log
+  file: "logs/inference.log"
+  max_bytes: 10485760
+  backup_count: 5
 
-# ByteTrack Settings
+# ByteTrack Settings - RTSP-optimised (handles frame drops)
 tracking:
-  track_activation_threshold: 0.25
-  lost_track_buffer: 90
-  minimum_matching_threshold: 0.7
-  minimum_consecutive_frames: 2
+  track_activation_threshold: 0.25 # Easier activation for fast/blurred bags
+  lost_track_buffer: 120            # 4 seconds at 30FPS - survive frame drops
+  minimum_matching_threshold: 0.40  # Balanced re-association
+  minimum_consecutive_frames: 1    # Instant ID assignment for high speed
+  frame_rate: 30                   # Standard base rate
+
+# Elasticsearch Integration
+elasticsearch:
+  enabled: true
+  ingestion_mode: "logstash" # "elasticsearch" (direct) or "logstash" (recommended for Kibana pipelines)
+  host: "localhost"
+  port: 9200
+  scheme: "http"
+  logstash_host: "localhost"
+  logstash_port: 8080
+  logstash_scheme: "http"
+  logstash_path: "/"
+  compatibility_version: 8 # ES server major version for API compatibility headers
+  index: "bag-count-events"
+  camera_id: "conveyor_belt_01"
+  live_only: true # Push events only for live camera streams
+
+

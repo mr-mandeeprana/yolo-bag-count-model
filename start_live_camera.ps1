@@ -1,3 +1,4 @@
+
 # ==============================================================
 # BEUMER Fillpac  |  YOLO Bag Counter  |  Live Camera Launcher
 # PowerShell Setup & Launch Script  v1.2
@@ -16,7 +17,8 @@ param(
     [switch]$SaveOutput,
     [switch]$NoDisplay,
     [string]$Confidence = "",
-    [string]$WeightsPath = "models\weights\best.pt"
+    [string]$WeightsPath = "models\weights\best.pt",
+    [switch]$WithELK
 )
 
 # --------------------------------------------------------------
@@ -181,6 +183,7 @@ if (-not $SkipSetup) {
         "filterpy>=1.4.5" `
         "scikit-image>=0.21.0" `
         "matplotlib>=3.7.0" `
+        "elasticsearch>=8.0.0" `
         --quiet
 
     if ($LASTEXITCODE -ne 0) {
@@ -212,6 +215,7 @@ if (-not $SkipSetup) {
         Write-Fail "Model weights missing. Add best.pt and re-run."
     }
 
+
     # ==============================================================
 }
 else {
@@ -227,17 +231,58 @@ else {
 # ==============================================================
 
 # --------------------------------------------------------------
+# Step 5.5  Observability (ELK Stack)
+# --------------------------------------------------------------
+$cfgFile = Join-Path $ProjectRoot "config\video_config.yaml"
+if (Test-Path $cfgFile) {
+    $cfgText = Get-Content $cfgFile -Raw
+    
+    # Auto-detect ELK enabled status
+    if ($cfgText -match 'elasticsearch:\s+enabled:\s*true') {
+        if (-not $WithELK) {
+            # Only auto-enable if we actually have Docker available
+            $dockerCheck = & docker info 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-OK "ELK integration detected in config - auto-starting observability stack"
+                $WithELK = $true
+            }
+            else {
+                Write-Warn "ELK is enabled in config, but Docker is not running. Skipping ELK startup."
+            }
+        }
+    }
+}
+
+if ($WithELK) {
+    Write-Step "5.5 / 7  Starting ELK Stack (Observability)"
+    $composeFile = Join-Path $ProjectRoot "docker-compose.observability.yml"
+    if (Test-Path $composeFile) {
+        Write-Host "      Starting containers ..."
+        & docker-compose -f $composeFile up -d
+        if ($LASTEXITCODE -eq 0) {
+            Write-OK "ELK stack is starting (Elasticsearch, Logstash, Kibana)"
+            Write-Host "      Kibana will be available at http://localhost:5601 once initialized"
+        }
+        else {
+            Write-Warn "Failed to start Docker Compose. Check Docker Desktop logs."
+        }
+    }
+    else {
+        Write-Warn "Observability compose file not found: $composeFile"
+    }
+}
+
+# --------------------------------------------------------------
 # Step 6  Resolve RTSP URL
 # --------------------------------------------------------------
 Write-Step "6 / 7  Resolving RTSP camera URL"
 
-if ($RtspUrl -ne "") {
-    Write-OK "Using RTSP URL supplied on command line"
-}
-else {
-    $cfgFile = Join-Path $ProjectRoot "config\video_config.yaml"
-    if (Test-Path $cfgFile) {
-        $cfgText = Get-Content $cfgFile -Raw
+if (Test-Path $cfgFile) {
+    $cfgText = Get-Content $cfgFile -Raw
+    if ($RtspUrl -ne "") {
+        Write-OK "Using RTSP URL supplied on command line"
+    }
+    else {
         if ($cfgText -match 'source:\s*"([^"]+)"') {
             $RtspUrl = $Matches[1]
             Write-OK "RTSP URL read from config\video_config.yaml"
@@ -250,9 +295,9 @@ else {
             Write-Warn "Could not parse source: field from video_config.yaml"
         }
     }
-    else {
-        Write-Warn "config\video_config.yaml not found"
-    }
+}
+else {
+    Write-Warn "config\video_config.yaml not found"
 }
 
 if ($RtspUrl -eq "" -or $RtspUrl -eq "null") {
