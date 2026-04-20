@@ -21,6 +21,7 @@ setup(
         "pyyaml>=6.0",
         "tqdm>=4.65.0",
         "python-dotenv>=1.0.0",
+        "elasticsearch>=8.0.0",
     ],
     author="Mandeep Rana",
     description="Real-time bag detection and counting for Fillpac conveyor monitoring",

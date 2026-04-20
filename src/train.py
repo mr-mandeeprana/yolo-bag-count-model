@@ -4,6 +4,7 @@ Fine-tunes YOLOv8 on Fillpac bag dataset
 """
 
 import os
+import sys
 import yaml
 import shutil
 import logging
@@ -11,6 +12,12 @@ from pathlib import Path
 from typing import Optional, Dict
 import torch
 from ultralytics import YOLO
+
+# Ensure project root is importable when running as a script (python src/train.py)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from src.evaluate import BagDetectionEvaluator
 
 
@@ -21,8 +28,12 @@ class BagDetectionTrainer:
         """
         Initialize trainer with configuration.
         """
-        self.config_path = config_path
-        with open(config_path, 'r') as f:
+        self.project_root = PROJECT_ROOT
+        self.config_path = Path(config_path)
+        if not self.config_path.is_absolute():
+            self.config_path = self.project_root / self.config_path
+
+        with open(self.config_path, 'r') as f:
             self.config = yaml.safe_load(f)
         
         self.model = None
@@ -57,9 +68,18 @@ class BagDetectionTrainer:
         print(f"Starting Training for Fillpac Bag Detection")
         print(f"{'='*60}\n")
         
+        # Resolve key paths relative to the project root for consistent behavior.
+        data_yaml_path = Path(data_yaml)
+        if not data_yaml_path.is_absolute():
+            data_yaml_path = self.project_root / data_yaml_path
+
+        project_dir = Path(self.config.get('project', 'runs/detect'))
+        if not project_dir.is_absolute():
+            project_dir = self.project_root / project_dir
+
         # Training parameters from config
         train_params = {
-            'data': data_yaml,
+            'data': str(data_yaml_path),
             'epochs': self.config.get('epochs', 50),
             'batch': self.config.get('batch', 16),
             'imgsz': self.config.get('imgsz', 640),
@@ -72,7 +92,7 @@ class BagDetectionTrainer:
             'patience': self.config.get('patience', 20),
             'save': self.config.get('save', True),
             'save_period': self.config.get('save_period', 10),
-            'project': self.config.get('project', 'runs/detect'),
+            'project': str(project_dir),
             'name': self.config.get('name', 'bag_counter'),
             'exist_ok': self.config.get('exist_ok', False),
             'verbose': self.config.get('verbose', True),
@@ -95,8 +115,6 @@ class BagDetectionTrainer:
             'fliplr': self.config.get('fliplr', 0.5),
             'mosaic': self.config.get('mosaic', 1.0),
             'mixup': self.config.get('mixup', 0.1),
-            'blur': self.config.get('blur', 0.1),
-            'erasing': self.config.get('erasing', 0.4),
         }
         
         # Merge parameters
@@ -110,11 +128,11 @@ class BagDetectionTrainer:
         print(f"{'='*60}\n")
         
         # Save best model to dedicated weights folder
-        best_weights = Path(train_params['project']) / train_params['name'] / 'weights' / 'best.pt'
+        save_dir = Path(getattr(self.results, 'save_dir', Path(train_params['project']) / train_params['name']))
+        best_weights = save_dir / 'weights' / 'best.pt'
         if best_weights.exists():
-            weights_dir = Path('models/weights')
+            weights_dir = self.project_root / 'models' / 'weights'
             weights_dir.mkdir(parents=True, exist_ok=True)
-            import shutil
             shutil.copy(best_weights, weights_dir / 'best.pt')
             print(f"✓ Best model saved to: {weights_dir / 'best.pt'}")
     

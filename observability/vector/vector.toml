@@ -1,0 +1,49 @@
+# Vector.dev Configuration for YOLO Bag Counter
+# Pipeline: Socket.IO Server -> Vector.dev -> Elasticsearch
+
+[api]
+enabled = true
+address = "0.0.0.0:8687"
+
+[sources.socketio_events]
+type = "http_server"
+address = "0.0.0.0:8686"
+path = "/logs"
+encoding = "json"
+
+[transforms.normalize_event]
+type = "remap"
+inputs = ["socketio_events"]
+source = '''
+if !exists(.timestamp) {
+  .timestamp = to_unix_timestamp(now(), unit: "milliseconds")
+}
+
+if !exists(."@timestamp") {
+  ."@timestamp" = format_timestamp!(now(), format: "%+")
+}
+
+if !exists(.bag_count) && exists(.value) {
+  .bag_count = to_int(.value) ?? 0
+} else {
+  .bag_count = to_int(.bag_count) ?? 0
+}
+
+.revision = to_int(.revision) ?? .bag_count
+.event_type = to_string(.event_type) ?? "sensor"
+.source = to_string(.source) ?? "yolo_bag_counter"
+.pipeline = "socketio-vector-elk"
+'''
+
+[sinks.elasticsearch]
+type = "elasticsearch"
+inputs = ["normalize_event"]
+endpoints = ["http://elasticsearch:9200"]
+mode = "bulk"
+bulk.index = "bag-count-events"
+bulk.action = "index"
+
+[sinks.console_debug]
+type = "console"
+inputs = ["normalize_event"]
+encoding.codec = "json"

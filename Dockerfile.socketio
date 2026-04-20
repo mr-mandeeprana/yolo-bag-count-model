@@ -1,0 +1,39 @@
+# Dockerfile for Socket.IO Backend Server
+# Multi-stage build for minimal image size
+
+FROM node:18-alpine AS builder
+
+WORKDIR /build
+
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Production stage
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install curl for healthcheck
+RUN apk add --no-cache curl
+
+# Copy from builder
+COPY --from=builder /build/node_modules ./node_modules
+
+# Copy application code
+COPY server.js ./
+
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Expose Socket.IO port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --retries=10 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# Start application
+CMD ["node", "server.js"]

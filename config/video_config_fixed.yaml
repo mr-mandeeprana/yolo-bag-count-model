@@ -18,14 +18,14 @@ video:
 
 # AI Model Configuration
 model:
-  weights: "models/weights/best_openvino_model"
+  weights: "models/weights/best.pt"
   target_class_name: "bag"  # Enforce bag-only class filtering by label name
-  confidence: 0.45      # Slightly lower to keep fast/blurred bags from being missed
-  iou: 0.45             # Tighter NMS to separate bags that are close together
-  imgsz: 320            # Keep small for speed
-  frame_skip: 0         # Still processing every frame for high speed
+  confidence: 0.50      # Detection confidence threshold to reduce false positives
+  iou: 0.45             # NMS IoU threshold for separating close detections
+  imgsz: 320            # Input image size for inference
+  frame_skip: 0         # Process every frame for high-speed conveyor
   device: "cpu"         
-  half: true            # Enabled for OpenVINO speedup on CPU
+  half: true            # Enable half-precision if available
 
 # Region of Interest (ROI) - Conveyor belt area only
 # Excludes ceiling glare at top and floor edge at bottom
@@ -46,11 +46,8 @@ counting:
   trigger_anchor: "center" # Center is most stable for varying box sizes
   min_area: 5000 # Minimum area for valid bag detection
   max_area: null # Removed max_area - trust confidence and aspect ratio filters
-  min_aspect_ratio: 0.2 # Allow wider aspect ratios
-  max_aspect_ratio: 5.0 # Allow more stretched detections
-  positional_fingerprint_cooldown_s: 0.30 # Per-bag dedupe, allows close consecutive bags
-  tracker_after_positional_guard_s: 0.25 # Short guard to avoid immediate double count
-  min_count_gap_s: 0.00 # Keep zero for high-throughput conveyor
+  min_aspect_ratio: 0.2 # Allow wider aspect ratios for bags
+  max_aspect_ratio: 5.0 # Allow stretched detections
 
 calibration:
   show_training_zone: true
@@ -66,16 +63,6 @@ display:
   allow_live_output: false # Do not save MP4 when source is live camera
   performance_mode: false # Disabled to allow diagnostic overlays
   diagnostic_mode: true # Enabled to show low-conf and small-area detections
-  live_performance:
-    enabled: true
-    performance_mode: true # Avoid expensive copies/overlays on live stream
-    show_tracking_ids: false # Label rendering is costly at high FPS
-    diagnostic_mode: false # Keep confidence threshold strict in live mode
-    show_calibration: false # Calibration overlay is for setup, not production run
-
-# Live stream runtime controls
-live:
-  infer_every_n_frames: 1 # Increase to 2 only if CPU is still saturated
 
 # Logging Configuration
 logging:
@@ -86,7 +73,7 @@ logging:
 
 # ByteTrack Settings - RTSP-optimised (handles frame drops)
 tracking:
-  track_activation_threshold: 0.25 # Easier activation for fast/blurred bags
+  track_activation_threshold: 0.30 # Slightly higher for more stable tracks
   lost_track_buffer: 120            # 4 seconds at 30FPS - survive frame drops
   minimum_matching_threshold: 0.40  # Balanced re-association
   minimum_consecutive_frames: 1    # Instant ID assignment for high speed
@@ -94,7 +81,7 @@ tracking:
 
 # Pipeline Output (Socket.IO -> Vector -> ELK)
 pipeline:
-  enabled: true
+  enabled: false
   socketio_url: "http://localhost:3000"
   socketio_event: "bag_count"
   socketio_namespace: "/"
@@ -107,6 +94,4 @@ pipeline:
   sourceid: "Truck01"
   event: "sensor"
   data_source_id: "FP01"
-  live_only: false # Allow pushing events for both video files and live camera streams
-
-
+  live_only: true # Push events only for live camera streams

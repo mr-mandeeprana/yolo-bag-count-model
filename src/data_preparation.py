@@ -40,7 +40,7 @@ class DatasetPreparer:
         ]
         for dir_path in dirs:
             (self.output_dir / dir_path).mkdir(parents=True, exist_ok=True)
-        print(f"✓ Created directory structure in {self.output_dir}")
+        print(f"Created directory structure in {self.output_dir}")
     #Create directories for images and labels and output directory (Lines 33-43) 
     
     def extract_frames_from_video(
@@ -86,7 +86,7 @@ class DatasetPreparer:
                 frame_count += 1
         
         cap.release()
-        print(f"✓ Extracted {len(saved_frames)} frames from {video_name}")
+        print(f"Extracted {len(saved_frames)} frames from {video_name}")
         return saved_frames
     
     #Convert labelimg to yolo (Lines 88-130) (data->Image->train/val/test)
@@ -162,7 +162,7 @@ class DatasetPreparer:
                     f.write('\n'.join(yolo_annotations))
                 converted_count += 1
         
-        print(f"✓ Converted {converted_count} valid XML files to YOLO format")
+        print(f"Converted {converted_count} valid XML files to YOLO format")
     #split dataset into train/val/test (Lines 149-193)
     def split_dataset(
         self, 
@@ -211,7 +211,7 @@ class DatasetPreparer:
                 dst_label = self.output_dir / 'labels' / split_name / label_file.name
                 shutil.copy(str(label_file), str(dst_label))
         
-        print(f"✓ Reproducible dataset split: Train={len(splits['train'])}, Val={len(splits['val'])}, Test={len(splits['test'])}")
+        print(f"Reproducible dataset split: Train={len(splits['train'])}, Val={len(splits['val'])}, Test={len(splits['test'])}")
 
      
 
@@ -229,7 +229,7 @@ class DatasetPreparer:
         yaml_path = self.output_dir / 'data.yaml'
         with open(yaml_path, 'w') as f:
             yaml.dump(data, f, default_flow_style=False)
-        print(f"✓ Generated data.yaml in {self.output_dir}")
+        print(f"Generated data.yaml in {self.output_dir}")
 
 
 def main():
@@ -267,7 +267,7 @@ def main():
         preparer.generate_data_yaml()
         
     
-    print("\n✓ Data preparation complete!")
+    print("\nData preparation complete!")
 
 
 if __name__ == '__main__':

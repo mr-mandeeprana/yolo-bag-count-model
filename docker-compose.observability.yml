@@ -16,20 +16,27 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+    networks:
+      - bagcounter-network
 
-  logstash:
-    image: docker.elastic.co/logstash/logstash:8.13.4
-    container_name: bagcounter-logstash
+  vector:
+    image: timberio/vector:0.36.1-debian
+    container_name: bagcounter-vector
     depends_on:
       elasticsearch:
         condition: service_healthy
     ports:
-      - "8080:8080"
-      - "9600:9600"
-    environment:
-      - LS_JAVA_OPTS=-Xms512m -Xmx512m
+      - "8687:8687"
     volumes:
-      - ./observability/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./observability/vector/vector.toml:/etc/vector/vector.toml:ro
+    command: ["--config", "/etc/vector/vector.toml"]
+    healthcheck:
+      test: ["CMD", "vector", "validate", "/etc/vector/vector.toml"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    networks:
+      - bagcounter-network
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.13.4
@@ -42,6 +49,45 @@ services:
       - XPACK_SECURITY_ENABLED=false
     ports:
       - "5601:5601"
+    networks:
+      - bagcounter-network
+
+  # ============================================================
+  # Socket.IO Backend Server (Node.js)
+  # Receives bag count events from YOLO and forwards to Vector.dev
+  # ============================================================
+  socketio-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.socketio
+    container_name: bagcounter-socketio
+    depends_on:
+      vector:
+        condition: service_healthy
+    ports:
+      - "3000:3000"  # Socket.IO endpoint
+      - "8686:3000"  # Browser-friendly ingest gateway (/logs)
+    environment:
+      - NODE_ENV=production
+      - SOCKETIO_PORT=3000
+      - VECTOR_HOST=vector
+      - VECTOR_PORT=8686
+      - VECTOR_PATH=/logs
+      - LOG_LEVEL=info
+    volumes:
+      - ./logs/socketio:/app/logs:rw
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - bagcounter-network
+    restart: unless-stopped
 
 volumes:
   es-data:
+
+networks:
+  bagcounter-network:
+    driver: bridge

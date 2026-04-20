@@ -5,7 +5,7 @@ model: yolov8n.pt # Options: yolov8n, yolov8s, yolov8m (n=nano, s=small, m=mediu
 
 # Training Hyperparameters
 epochs: 50 # Number of training epochs (increase to 100+ for better results)
-batch: 16 # Batch size (adjust based on GPU memory)
+batch: 8 # Batch size (adjust based on GPU memory)
 imgsz: 640 # Input image size (640x640)
 device: 0 # GPU device (0 for first GPU, 'cpu' for CPU)
 
@@ -29,8 +29,8 @@ flipud: 0.0 # Vertical flip (probability)
 fliplr: 0.5 # Horizontal flip (probability)
 mosaic: 1.0 # Mosaic augmentation (probability)
 mixup: 0.1 # MixUp augmentation (probability)
-blur: 0.1 # Probability of applying blur (for vibrations)
-erasing: 0.4 # Random erasing (to simulate occlusions)
+# blur: 0.1 # Probability of applying blur (for vibrations)
+# erasing: 0.4 # Random erasing (to simulate occlusions)
 
 # Validation
 val: true # Validate during training

@@ -24,7 +24,7 @@ root_path = Path(__file__).resolve().parent.parent
 if str(root_path) not in sys.path:
     sys.path.insert(0, str(root_path))
 
-from src.elasticsearch_client import ElasticsearchClient
+from src.socketio_pipeline_client import SocketIOPipelineClient
 
 # Ultra-low latency FFMPEG options for RTSP streaming
 # Aggressive settings to minimize buffering and delay
@@ -430,9 +430,9 @@ class BagCounterVideo:
         self._pos_counted: set = set()     # fingerprints already counted (prevent double-count)
         self._pos_last_count_at: dict = {} # per-fingerprint timestamp for fast-line dedupe
         
-        # Initialize Elasticsearch Client
-        es_config = self.config.get('elasticsearch', {})
-        self.es_client = ElasticsearchClient(es_config)
+        # Initialize pipeline output client
+        pipeline_config = self.config.get('pipeline', self.config.get('elasticsearch', {}))
+        self.pipeline_client = SocketIOPipelineClient(pipeline_config)
 
     def _refresh_roi_for_frame(self, frame_shape: Tuple[int, int]) -> None:
         """Build ROI polygon/zone for the current frame size.
@@ -618,19 +618,21 @@ class BagCounterVideo:
             'live': {'infer_every_n_frames': 1},
             'logging': {'level': 'INFO', 'file': 'logs/inference.log', 'max_bytes': 10485760, 'backup_count': 5},
             'tracking': {'track_activation_threshold': 0.20, 'lost_track_buffer': 120, 'minimum_matching_threshold': 0.5, 'minimum_consecutive_frames': 1},
-            'elasticsearch': {
+            'pipeline': {
                 'enabled': False,
-                'ingestion_mode': 'elasticsearch',
-                'host': 'localhost',
-                'port': 9200,
-                'scheme': 'http',
-                'logstash_host': 'localhost',
-                'logstash_port': 8080,
-                'logstash_scheme': 'http',
-                'logstash_path': '/',
-                'index': 'bag-count-events',
-                'camera_id': 'conveyor_belt_01',
-                'live_only': True
+                'socketio_url': 'http://localhost:3000',
+                'socketio_event': 'bag_count',
+                'socketio_namespace': '/',
+                'socketio_path': 'socket.io',
+                'socketio_transports': ['websocket', 'polling'],
+                'socket_timeout_s': 3.0,
+                'parentid': 'TruckLoadingCount',
+                'commission': 'E0-00068100',
+                'sensorid': 'BagsCount',
+                'sourceid': 'Truck01',
+                'event': 'sensor',
+                'data_source_id': 'FP01',
+                'live_only': False
             }
         }
         
@@ -917,17 +919,13 @@ class BagCounterVideo:
         
         if count_increased:
             self.last_trigger_time = time.time()
-            if self.es_client.enabled:
-                es_cfg = self.config.get('elasticsearch', {})
-                live_only = es_cfg.get('live_only', True)
+            if self.pipeline_client.enabled:
+                pipe_cfg = self.config.get('pipeline', self.config.get('elasticsearch', {}))
+                live_only = pipe_cfg.get('live_only', True)
                 if (not live_only) or self.is_live_stream:
-                    self.es_client.push_event(
+                    self.pipeline_client.push_event(
                         self.current_count - start_count,
-                        self.current_count,
-                        {
-                            "stream_type": "live" if self.is_live_stream else "file",
-                            "camera_id": es_cfg.get('camera_id', 'unknown')
-                        }
+                        self.current_count
                     )
         
         return count_increased
@@ -1382,8 +1380,8 @@ class BagCounterVideo:
         finally:
             self.inference_active = False
             if self.inference_thread: self.inference_thread.join(timeout=1.0)
-            if hasattr(self, 'es_client'):
-                self.es_client.close()
+            if hasattr(self, 'pipeline_client'):
+                self.pipeline_client.close()
             cap.release()
             cv2.destroyAllWindows()
             

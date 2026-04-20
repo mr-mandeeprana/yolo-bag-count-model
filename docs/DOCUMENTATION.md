@@ -9,9 +9,10 @@ This document contains all instructions for training, deploying, and troubleshoo
 1. [Quick Start](#1-quick-start)
 2. [Training Guide](#2-training-guide)
 3. [Deployment & Camera Setup](#3-deployment--camera-setup)
-4. [Troubleshooting](#4-troubleshooting)
-5. [RTSP Camera Troubleshooting (Local)](#5-rtsp-camera-troubleshooting-local)
-6. [System Architecture](#6-system-architecture)
+4. [Kibana & Logstash Setup](#4-kibana--logstash-setup)
+5. [Troubleshooting](#5-troubleshooting)
+6. [RTSP Camera Troubleshooting (Local)](#6-rtsp-camera-troubleshooting-local)
+7. [System Architecture](#7-system-architecture)
 
 ---
 
@@ -87,7 +88,59 @@ YOLO('models/weights/best.pt').export(format='engine', device=0, half=True)
 
 ---
 
-## 4. Troubleshooting
+## 4. Kibana & Logstash Setup
+
+Use this when you want centralized data views and dashboards for bag counting events.
+
+### Start the ELK Stack
+
+```powershell
+docker compose -f docker-compose.observability.yml up -d
+```
+
+Services:
+
+- Elasticsearch: `http://localhost:9200`
+- Logstash HTTP input: `http://localhost:8080`
+- Kibana: `http://localhost:5601`
+
+### Configure App Ingestion
+
+In `config/video_config.yaml` set:
+
+```yaml
+elasticsearch:
+   enabled: true
+   ingestion_mode: "logstash"
+   logstash_host: "localhost"
+   logstash_port: 8080
+   logstash_scheme: "http"
+   logstash_path: "/"
+   index: "bag-count-events"
+```
+
+### Create Kibana Data View and Dashboard
+
+After Kibana is up:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup_kibana_assets.ps1
+```
+
+This creates:
+
+- Data view: `bag-count-events*`
+- Dashboard: `Bag Count Monitoring Dashboard`
+
+### Stop the ELK Stack
+
+```powershell
+docker compose -f docker-compose.observability.yml down
+```
+
+---
+
+## 5. Troubleshooting
 
 | Issue | Solution |
 |-------|----------|
@@ -98,7 +151,7 @@ YOLO('models/weights/best.pt').export(format='engine', device=0, half=True)
 
 ---
 
-## 5. RTSP Camera Troubleshooting (Local)
+## 6. RTSP Camera Troubleshooting (Local)
 
 If you see a `RuntimeError` or `CAP_IMAGES` error when connecting to your camera, follow these steps on **your local computer**:
 
@@ -118,7 +171,7 @@ If you see a `RuntimeError` or `CAP_IMAGES` error when connecting to your camera
 
 ---
 
-## 6. System Architecture
+## 7. System Architecture
 
 The system uses **YOLOv8** for detection and **ByteTrack** for robust object tracking.
 
